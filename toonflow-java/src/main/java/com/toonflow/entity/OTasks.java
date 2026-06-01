@@ -1,0 +1,21 @@
+package com.toonflow.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+
+@Data
+@TableName("o_tasks")
+public class OTasks {
+    @TableId(type = IdType.AUTO)
+    private Integer id;
+    private Integer projectId;
+    private String state;
+    private String model;
+    private String taskClass;
+    private String describe;
+    private String reason;
+    private String relatedObjects;
+    private Long startTime;
+}
