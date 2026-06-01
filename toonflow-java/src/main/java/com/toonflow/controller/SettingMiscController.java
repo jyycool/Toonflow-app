@@ -95,6 +95,14 @@ public class SettingMiscController {
         }
     }
 
+    /**
+     * 下载应用（服务端模式提示浏览器下载）
+     */
+    @PostMapping("/about/downloadApp")
+    public R<String> downloadApp(@RequestBody Map<String, Object> body) {
+        return R.ok("请在浏览器中手动下载并安装最新版本");
+    }
+
     // ========== 文件夹（远程环境不支持打开本地文件夹）==========
 
     @PostMapping("/fileManagement/openFolder")

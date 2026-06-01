@@ -3,7 +3,11 @@ package com.toonflow.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.toonflow.common.exception.BusinessException;
 import com.toonflow.common.result.R;
+import com.toonflow.entity.OEvent;
+import com.toonflow.entity.OEventChapter;
 import com.toonflow.entity.ONovel;
+import com.toonflow.mapper.OEventChapterMapper;
+import com.toonflow.mapper.OEventMapper;
 import com.toonflow.mapper.ONovelMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -20,6 +24,8 @@ import java.util.Map;
 public class NovelController {
 
     private final ONovelMapper novelMapper;
+    private final OEventMapper eventMapper;
+    private final OEventChapterMapper eventChapterMapper;
     private final com.toonflow.ai.CleanNovelService cleanNovelService;
 
     @PostMapping("/addNovel")
@@ -128,6 +134,70 @@ public class NovelController {
         // 异步清洗生成事件
         cleanNovelService.start(chapters, req.getProjectId());
         return R.ok(Map.of("message", "已提交事件生成任务"));
+    }
+
+    // ========== 事件管理 ==========
+
+    /**
+     * 分页查询事件（联查 o_eventChapter -> o_novel 过滤 projectId）
+     */
+    @PostMapping("/event/getEvent")
+    public R<Map<String, Object>> getEvent(@RequestBody Map<String, Object> body) {
+        Integer projectId = (Integer) body.get("projectId");
+        int page = body.get("page") != null ? (Integer) body.get("page") : 1;
+        int limit = body.get("limit") != null ? (Integer) body.get("limit") : 10;
+        String search = (String) body.get("search");
+
+        // 查出该项目下的所有 novelId
+        List<Integer> novelIds = novelMapper.selectList(
+                new LambdaQueryWrapper<ONovel>()
+                        .eq(ONovel::getProjectId, projectId)
+                        .select(ONovel::getId))
+                .stream().map(ONovel::getId).toList();
+
+        if (novelIds.isEmpty()) {
+            return R.ok(Map.of("list", List.of(), "total", 0));
+        }
+
+        // 通过 eventChapter 找到关联的 eventId
+        List<Integer> eventIds = eventChapterMapper.selectList(
+                new LambdaQueryWrapper<OEventChapter>()
+                        .in(OEventChapter::getNovelId, novelIds)
+                        .select(OEventChapter::getEventId))
+                .stream().map(OEventChapter::getEventId).distinct().toList();
+
+        if (eventIds.isEmpty()) {
+            return R.ok(Map.of("list", List.of(), "total", 0));
+        }
+
+        LambdaQueryWrapper<OEvent> wrapper = new LambdaQueryWrapper<OEvent>()
+                .in(OEvent::getId, eventIds);
+        if (search != null && !search.isEmpty()) {
+            wrapper.like(OEvent::getName, search);
+        }
+        long total = eventMapper.selectCount(wrapper);
+        wrapper.last("LIMIT " + limit + " OFFSET " + ((page - 1) * limit));
+        List<OEvent> list = eventMapper.selectList(wrapper);
+
+        return R.ok(Map.of("list", list, "total", total));
+    }
+
+    @PostMapping("/event/deletEvent")
+    public R<Map<String, String>> deletEvent(@RequestBody Map<String, Integer> body) {
+        Integer id = body.get("id");
+        if (id == null) throw new BusinessException("id不能为空");
+        eventMapper.deleteById(id);
+        eventChapterMapper.delete(new LambdaQueryWrapper<OEventChapter>().eq(OEventChapter::getEventId, id));
+        return R.ok(Map.of("message", "删除事件成功"));
+    }
+
+    @PostMapping("/event/batchDeleteEvent")
+    public R<Map<String, String>> batchDeleteEvent(@RequestBody Map<String, List<Integer>> body) {
+        List<Integer> ids = body.get("ids");
+        if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
+        eventMapper.deleteBatchIds(ids);
+        eventChapterMapper.delete(new LambdaQueryWrapper<OEventChapter>().in(OEventChapter::getEventId, ids));
+        return R.ok(Map.of("message", "删除事件成功"));
     }
 
     @Data

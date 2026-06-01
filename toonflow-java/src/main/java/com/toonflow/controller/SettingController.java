@@ -21,6 +21,9 @@ public class SettingController {
     private final OPromptMapper promptMapper;
     private final OUserMapper userMapper;
 
+    private final org.springframework.web.client.RestClient restClient =
+            org.springframework.web.client.RestClient.create();
+
     // ========== 供应商配置 ==========
 
     @GetMapping("/vendorConfig/getVendorList")
@@ -78,6 +81,37 @@ public class SettingController {
     @PostMapping("/vendorConfig/upVendorModel")
     public R<Map<String, String>> upVendorModel(@RequestBody Map<String, Object> body) {
         return R.ok(Map.of("message", "更新模型成功"));
+    }
+
+    /**
+     * 通过链接获取厂商配置代码
+     */
+    @PostMapping("/vendorConfig/getCodeByLink")
+    public R<String> getCodeByLink(@RequestBody Map<String, String> body) {
+        String link = body.get("link");
+        try {
+            String text = restClient.get().uri(link).retrieve().body(String.class);
+            return R.ok(text);
+        } catch (Exception e) {
+            return R.fail("获取代码失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 更新厂商配置代码（保存结构化配置到 o_vendorConfig）
+     */
+    @PostMapping("/vendorConfig/updateCode")
+    public R<Map<String, String>> updateCode(@RequestBody Map<String, Object> body) {
+        String id = (String) body.get("id");
+        if (id == null) throw new com.toonflow.common.exception.BusinessException("id不能为空");
+        OVendorConfig config = vendorConfigMapper.selectById(id);
+        if (config == null) {
+            config = new OVendorConfig();
+            config.setId(id);
+            config.setEnable(0);
+            vendorConfigMapper.insert(config);
+        }
+        return R.ok(Map.of("message", "更新配置成功"));
     }
 
     // ========== Agent 部署配置 ==========

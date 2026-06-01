@@ -26,9 +26,12 @@ public class ProductionController {
     private final OProjectMapper projectMapper;
     private final OAssetsMapper assetsMapper;
     private final OImageMapper imageMapper;
+    private final OAssets2StoryboardMapper assets2StoryboardMapper;
+    private final OAssetsRole2AudioMapper role2AudioMapper;
     private final com.toonflow.ai.vendor.VideoGenerationService videoGenerationService;
     private final com.toonflow.ai.vendor.MediaGenerationService mediaGenerationService;
     private final com.toonflow.ai.TaskRecordService taskRecordService;
+    private final com.toonflow.ai.AiService aiService;
 
     // ========== Flow 数据 ==========
 
@@ -265,5 +268,165 @@ public class ProductionController {
             case "1:1" -> "1024x1024";
             default -> "1024x1024";
         };
+    }
+
+    // ========== 制作侧素材 ==========
+
+    /**
+     * 更新素材图片地址（新建图片记录并回填到素材）
+     */
+    @PostMapping("/assets/updateAssetsUrl")
+    public R<Map<String, String>> updateAssetsUrl(@RequestBody Map<String, Object> body) {
+        Integer id = (Integer) body.get("id");
+        String url = (String) body.get("url");
+        Integer flowId = (Integer) body.get("flowId");
+
+        com.toonflow.entity.OImage image = new com.toonflow.entity.OImage();
+        image.setFilePath(url);
+        image.setState("已完成");
+        image.setAssetsId(id);
+        imageMapper.insert(image);
+
+        com.toonflow.entity.OAssets asset = assetsMapper.selectById(id);
+        if (asset != null) {
+            asset.setFlowId(flowId);
+            asset.setImageId(image.getId());
+            assetsMapper.updateById(asset);
+        }
+        return R.ok(Map.of("message", "更新成功"));
+    }
+
+    /**
+     * 删除衍生素材（含关联的图片流程和分镜关联）
+     */
+    @PostMapping("/assets/deleteAssetsDireve")
+    public R<Map<String, String>> deleteAssetsDireve(@RequestBody Map<String, Integer> body) {
+        Integer id = body.get("id");
+        com.toonflow.entity.OAssets asset = assetsMapper.selectById(id);
+        if (asset == null) throw new com.toonflow.common.exception.BusinessException("资源未找到");
+        if (asset.getFlowId() != null) imageFlowMapper.deleteById(asset.getFlowId());
+        assetsMapper.deleteById(id);
+        assets2StoryboardMapper.delete(
+                new LambdaQueryWrapper<com.toonflow.entity.OAssets2Storyboard>()
+                        .eq(com.toonflow.entity.OAssets2Storyboard::getAssetId, id));
+        return R.ok(Map.of("message", "删除成功"));
+    }
+
+    /**
+     * 制作侧批量生成素材图片（异步）
+     */
+    @PostMapping("/assets/batchGenerateAssetsImage")
+    public R<Map<String, String>> batchGenerateAssetsImage(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Integer> assetIds = (List<Integer>) body.get("assetIds");
+        Integer projectId = (Integer) body.get("projectId");
+        if (assetIds == null || assetIds.isEmpty()) {
+            throw new com.toonflow.common.exception.BusinessException("assetIds不能为空");
+        }
+        OProject project = projectMapper.selectById(projectId.longValue());
+        String imageModel = project != null ? project.getImageModel() : null;
+        String size = resolveSize(project != null ? project.getVideoRatio() : "16:9");
+
+        List<com.toonflow.entity.OAssets> list = assetsMapper.selectList(
+                new LambdaQueryWrapper<com.toonflow.entity.OAssets>().in(com.toonflow.entity.OAssets::getId, assetIds));
+        for (com.toonflow.entity.OAssets asset : list) {
+            asyncGenerateAssetImage(asset, imageModel, size, projectId);
+        }
+        return R.ok(Map.of("message", "已提交生成任务"));
+    }
+
+    @org.springframework.scheduling.annotation.Async
+    public void asyncGenerateAssetImage(com.toonflow.entity.OAssets asset, String imageModel,
+                                         String size, Integer projectId) {
+        Integer taskId = taskRecordService.start(projectId, "素材图片生成", imageModel,
+                "素材#" + asset.getId(), null);
+        try {
+            String url = mediaGenerationService.generateImage(imageModel, asset.getPrompt(), size);
+            com.toonflow.entity.OImage image = new com.toonflow.entity.OImage();
+            image.setAssetsId(asset.getId());
+            image.setFilePath(url);
+            image.setState("已完成");
+            image.setModel(imageModel);
+            imageMapper.insert(image);
+            asset.setImageId(image.getId());
+            assetsMapper.updateById(asset);
+            taskRecordService.done(taskId);
+        } catch (Exception e) {
+            taskRecordService.fail(taskId, e.getMessage());
+        }
+    }
+
+    // ========== 工作台：音频绑定列表 ==========
+
+    /**
+     * 生成视频提示词（AI 根据画面描述生成）
+     */
+    @PostMapping("/workbench/generateVideoPrompt")
+    public R<Map<String, String>> generateVideoPrompt(@RequestBody Map<String, Object> body) {
+        Integer trackId = (Integer) body.get("trackId");
+        String desc = (String) body.getOrDefault("desc", "");
+        try {
+            String prompt = aiService.generateText("universalAi", List.of(
+                    new com.toonflow.ai.AiService.ChatMessage("system",
+                            "你是视频生成提示词专家。请根据画面描述生成一段适合视频生成模型的运镜与画面提示词，只输出提示词。"),
+                    new com.toonflow.ai.AiService.ChatMessage("user", desc)));
+            if (trackId != null) {
+                OVideoTrack track = videoTrackMapper.selectById(trackId);
+                if (track != null) {
+                    track.setPrompt(prompt);
+                    videoTrackMapper.updateById(track);
+                }
+            }
+            return R.ok(Map.of("prompt", prompt));
+        } catch (Exception e) {
+            throw new com.toonflow.common.exception.BusinessException("生成提示词失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/workbench/batchGeneratePrompt")
+    public R<Map<String, String>> batchGeneratePrompt(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Integer> trackIds = (List<Integer>) body.get("trackIds");
+        if (trackIds != null) {
+            for (Integer trackId : trackIds) {
+                OVideoTrack track = videoTrackMapper.selectById(trackId);
+                if (track == null) continue;
+                try {
+                    String prompt = aiService.generateText("universalAi", List.of(
+                            new com.toonflow.ai.AiService.ChatMessage("system",
+                                    "你是视频提示词专家，根据描述生成视频提示词，只输出提示词。"),
+                            new com.toonflow.ai.AiService.ChatMessage("user",
+                                    track.getReason() != null ? track.getReason() : "")));
+                    track.setPrompt(prompt);
+                    videoTrackMapper.updateById(track);
+                } catch (Exception ignored) {}
+            }
+        }
+        return R.ok(Map.of("message", "批量生成提示词完成"));
+    }
+
+    @PostMapping("/workbench/getAudioBindAssetsList")
+    public R<List<Map<String, Object>>> getAudioBindAssetsList(@RequestBody Map<String, List<Integer>> body) {
+        List<Integer> assetsIds = body.get("assetsIds");
+        if (assetsIds == null || assetsIds.isEmpty()) return R.ok(List.of());
+
+        List<com.toonflow.entity.OAssetsRole2Audio> binds = role2AudioMapper.selectList(
+                new LambdaQueryWrapper<com.toonflow.entity.OAssetsRole2Audio>()
+                        .in(com.toonflow.entity.OAssetsRole2Audio::getAssetsRoleId, assetsIds));
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+        for (com.toonflow.entity.OAssetsRole2Audio bind : binds) {
+            List<com.toonflow.entity.OAssets> audios = assetsMapper.selectList(
+                    new LambdaQueryWrapper<com.toonflow.entity.OAssets>()
+                            .eq(com.toonflow.entity.OAssets::getAssetsId, bind.getAssetsAudioId()));
+            for (com.toonflow.entity.OAssets a : audios) {
+                Map<String, Object> m = new java.util.HashMap<>();
+                m.put("id", a.getId());
+                m.put("prompt", a.getPrompt());
+                m.put("assetsId", a.getAssetsId());
+                m.put("roleId", bind.getAssetsRoleId());
+                result.add(m);
+            }
+        }
+        return R.ok(result);
     }
 }

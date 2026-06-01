@@ -25,6 +25,7 @@ public class AgentController {
     private final MemoryService memoryService;
     private final MemoriesMapper memoriesMapper;
     private final OAgentWorkDataMapper agentWorkDataMapper;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @GetMapping("/getMemory")
     public R<List<Memories>> getMemory(@RequestParam String isolationKey) {
@@ -68,6 +69,25 @@ public class AgentController {
             agentWorkDataMapper.updateById(existing);
         }
         return R.ok(Map.of("message", "保存成功"));
+    }
+
+    /**
+     * 更新工作区数据（剧本骨架/改编策略/剧本）
+     */
+    @PostMapping("/scriptAgent/updateData")
+    public R<Map<String, String>> updateData(@RequestBody Map<String, Object> body) {
+        Integer id = (Integer) body.get("id");
+        Object data = body.get("data");
+        OAgentWorkData work = agentWorkDataMapper.selectById(id);
+        if (work == null) throw new com.toonflow.common.exception.BusinessException("工作数据不存在");
+        try {
+            work.setData(objectMapper.writeValueAsString(data));
+            work.setUpdateTime(System.currentTimeMillis());
+            agentWorkDataMapper.updateById(work);
+        } catch (Exception e) {
+            throw new com.toonflow.common.exception.BusinessException("更新失败: " + e.getMessage());
+        }
+        return R.ok(Map.of("message", "更新成功"));
     }
 
     /**

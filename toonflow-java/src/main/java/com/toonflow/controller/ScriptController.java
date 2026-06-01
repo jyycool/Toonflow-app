@@ -24,6 +24,7 @@ public class ScriptController {
 
     private final OScriptMapper scriptMapper;
     private final OScriptAssetsMapper scriptAssetsMapper;
+    private final com.toonflow.ai.AiService aiService;
 
     @PostMapping("/addScript")
     public R<Map<String, String>> addScript(@Valid @RequestBody AddScriptRequest req) {
@@ -118,6 +119,43 @@ public class ScriptController {
             }
         }
         return R.ok(Map.of("message", "已提交资产提取任务"));
+    }
+
+    /**
+     * AI 识别剧本的集/章节分隔正则
+     */
+    @PostMapping("/getAiRegex")
+    public R<Map<String, String>> getAiRegex(@RequestBody Map<String, String> body) {
+        String content = body.get("content");
+        String systemPrompt = """
+                你是一个正则表达式专家。用户会提供一段剧本文本，你需要分析其中的集/章节分隔模式，返回一个JavaScript正则表达式字符串。
+                要求：
+                1. 正则必须包含两个捕获组：第一个匹配集数/章节编号，第二个匹配标题/名称。
+                2. 返回格式为 /正则/g。
+                3. 只返回正则字符串本身，不要任何解释或markdown。
+                4. 若无明显章节分隔模式，返回空字符串。""";
+        try {
+            String regex = aiService.generateText("universalAi", List.of(
+                    new com.toonflow.ai.AiService.ChatMessage("system", systemPrompt),
+                    new com.toonflow.ai.AiService.ChatMessage("user", content)));
+            return R.ok(Map.of("regex", regex != null ? regex.trim() : ""));
+        } catch (Exception e) {
+            throw new BusinessException("识别正则失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 轮询剧本资产提取状态（排除"生成中"）
+     */
+    @PostMapping("/pollScriptAssets")
+    public R<List<OScript>> pollScriptAssets(@RequestBody Map<String, List<Integer>> body) {
+        List<Integer> ids = body.get("ids");
+        if (ids == null || ids.isEmpty()) return R.ok(List.of());
+        return R.ok(scriptMapper.selectList(
+                new LambdaQueryWrapper<OScript>()
+                        .in(OScript::getId, ids)
+                        .ne(OScript::getExtractState, 0)
+                        .select(OScript::getId, OScript::getExtractState, OScript::getErrorReason)));
     }
 
     @Data

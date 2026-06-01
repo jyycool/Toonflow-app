@@ -37,6 +37,7 @@ public class GenerateController {
 
     private final MediaGenerationService mediaGenerationService;
     private final TaskRecordService taskRecordService;
+    private final com.toonflow.ai.AiService aiService;
     private final OStoryboardMapper storyboardMapper;
     private final OAssetsMapper assetsMapper;
     private final OImageMapper imageMapper;
@@ -169,6 +170,67 @@ public class GenerateController {
             case "1:1" -> "1024x1024";
             default -> "1024x1024";
         };
+    }
+
+    /**
+     * 取消生成（将图片标记为生成失败）
+     */
+    @PostMapping("/assetsGenerate/cancelGenerate")
+    public R<Map<String, String>> cancelGenerate(@RequestBody Map<String, Integer> body) {
+        Integer id = body.get("id");
+        com.toonflow.entity.OImage image = imageMapper.selectById(id);
+        if (image != null) {
+            image.setState("生成失败");
+            imageMapper.updateById(image);
+        }
+        return R.ok(Map.of("message", "取消成功"));
+    }
+
+    /**
+     * 润色素材提示词（调用 AI 优化）
+     */
+    @PostMapping("/assetsGenerate/polishAssetsPrompt")
+    public R<Map<String, Object>> polishAssetsPrompt(@RequestBody Map<String, Object> body) {
+        Integer assetsId = (Integer) body.get("assetsId");
+        String name = (String) body.getOrDefault("name", "");
+        String describe = (String) body.getOrDefault("describe", "");
+        try {
+            String polished = aiService.generateText("universalAi", List.of(
+                    new com.toonflow.ai.AiService.ChatMessage("system",
+                            "你是一个图像提示词专家。请将用户提供的素材名称和描述润色为高质量的图像生成提示词，只输出提示词本身。"),
+                    new com.toonflow.ai.AiService.ChatMessage("user", "名称：" + name + "\n描述：" + describe)));
+            // 回写到素材
+            com.toonflow.entity.OAssets asset = assetsMapper.selectById(assetsId);
+            if (asset != null) {
+                asset.setPrompt(polished);
+                assetsMapper.updateById(asset);
+            }
+            return R.ok(Map.of("prompt", polished));
+        } catch (Exception e) {
+            throw new BusinessException("润色失败: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/assetsGenerate/batchPolishAssetsPrompt")
+    public R<Map<String, String>> batchPolishAssetsPrompt(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Integer> assetIds = (List<Integer>) body.get("assetIds");
+        if (assetIds != null) {
+            for (Integer id : assetIds) {
+                com.toonflow.entity.OAssets asset = assetsMapper.selectById(id);
+                if (asset == null) continue;
+                try {
+                    String polished = aiService.generateText("universalAi", List.of(
+                            new com.toonflow.ai.AiService.ChatMessage("system",
+                                    "你是图像提示词专家，请将素材描述润色为高质量图像提示词，只输出提示词。"),
+                            new com.toonflow.ai.AiService.ChatMessage("user",
+                                    "名称：" + asset.getName() + "\n描述：" + asset.getDescribe())));
+                    asset.setPrompt(polished);
+                    assetsMapper.updateById(asset);
+                } catch (Exception ignored) {}
+            }
+        }
+        return R.ok(Map.of("message", "批量润色完成"));
     }
 
     @Data
