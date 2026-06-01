@@ -2,12 +2,19 @@ package com.toonflow.ai.agent;
 
 import com.toonflow.ai.AiService;
 import com.toonflow.ai.MemoryService;
+import com.toonflow.ai.agent.tool.ProductionAgentTools;
+import com.toonflow.ai.vendor.MediaGenerationService;
 import com.toonflow.entity.OProject;
+import com.toonflow.mapper.OAssetsMapper;
+import com.toonflow.mapper.OImageFlowMapper;
 import com.toonflow.mapper.OProjectMapper;
+import com.toonflow.mapper.OScriptAssetsMapper;
+import com.toonflow.mapper.OStoryboardMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 
 import java.util.List;
 import java.util.Map;
@@ -33,6 +40,11 @@ public class ProductionAgentService {
     private final AiService aiService;
     private final MemoryService memoryService;
     private final OProjectMapper projectMapper;
+    private final OAssetsMapper assetsMapper;
+    private final OScriptAssetsMapper scriptAssetsMapper;
+    private final OStoryboardMapper storyboardMapper;
+    private final OImageFlowMapper imageFlowMapper;
+    private final MediaGenerationService mediaGenerationService;
     private final SimpMessagingTemplate messagingTemplate;
 
     private static final String AGENT_TYPE = "productionAgent";
@@ -64,6 +76,11 @@ public class ProductionAgentService {
      * 运行决策 Agent（主入口），流式推送
      */
     public void runDecision(String sessionId, String isolationKey, Long projectId, String userText) {
+        runDecision(sessionId, isolationKey, projectId, null, userText);
+    }
+
+    public void runDecision(String sessionId, String isolationKey, Long projectId,
+                            Integer scriptId, String userText) {
         memoryService.add(AGENT_TYPE, isolationKey, "user", userText);
 
         MemoryService.MemoryContext mem = memoryService.get(isolationKey, userText);
@@ -75,8 +92,14 @@ public class ProductionAgentService {
                 new AiService.ChatMessage("assistant", projectInfo + "\n" + memPrompt),
                 new AiService.ChatMessage("user", userText));
 
+        OProject project = projectMapper.selectById(projectId);
+        String imageModel = project != null ? project.getImageModel() : null;
+        ProductionAgentTools tools = new ProductionAgentTools(assetsMapper, scriptAssetsMapper,
+                storyboardMapper, imageFlowMapper, mediaGenerationService,
+                projectId, scriptId, imageModel);
+
         streamAndSave(sessionId, isolationKey, AGENT_TYPE + ":decisionAgent",
-                messages, "assistant:decision");
+                messages, "assistant:decision", tools);
     }
 
     /**
@@ -95,9 +118,17 @@ public class ProductionAgentService {
 
     private void streamAndSave(String sessionId, String isolationKey, String agentKey,
                                List<AiService.ChatMessage> messages, String memoryKey) {
+        streamAndSave(sessionId, isolationKey, agentKey, messages, memoryKey, (Object[]) null);
+    }
+
+    private void streamAndSave(String sessionId, String isolationKey, String agentKey,
+                               List<AiService.ChatMessage> messages, String memoryKey,
+                               Object... tools) {
         StringBuilder full = new StringBuilder();
-        aiService.streamText(agentKey, messages)
-                .subscribe(
+        Flux<String> stream = (tools != null && tools.length > 0)
+                ? aiService.streamTextWithTools(agentKey, messages, tools)
+                : aiService.streamText(agentKey, messages);
+        stream.subscribe(
                         chunk -> {
                             full.append(chunk);
                             messagingTemplate.convertAndSend("/topic/agent/" + sessionId,

@@ -3,10 +3,12 @@ package com.toonflow.ai.agent;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.toonflow.ai.AiService;
 import com.toonflow.ai.MemoryService;
+import com.toonflow.ai.agent.tool.ScriptAgentTools;
 import com.toonflow.entity.ONovel;
 import com.toonflow.entity.OProject;
 import com.toonflow.mapper.ONovelMapper;
 import com.toonflow.mapper.OProjectMapper;
+import com.toonflow.mapper.OScriptMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -31,6 +33,7 @@ public class ScriptAgentService {
     private final MemoryService memoryService;
     private final OProjectMapper projectMapper;
     private final ONovelMapper novelMapper;
+    private final OScriptMapper scriptMapper;
     private final SimpMessagingTemplate messagingTemplate;
 
     private static final String AGENT_TYPE = "scriptAgent";
@@ -60,7 +63,10 @@ public class ScriptAgentService {
 
         StringBuilder fullResponse = new StringBuilder();
 
-        aiService.streamText(AGENT_TYPE + ":decisionAgent", messages)
+        // 绑定当前会话的工具集，供大模型自主调用
+        ScriptAgentTools tools = new ScriptAgentTools(novelMapper, scriptMapper, projectId);
+
+        aiService.streamTextWithTools(AGENT_TYPE + ":decisionAgent", messages, tools)
                 .subscribe(
                         chunk -> {
                             fullResponse.append(chunk);

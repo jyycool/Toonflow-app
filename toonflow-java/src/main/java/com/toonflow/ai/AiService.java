@@ -94,11 +94,17 @@ public class AiService {
             String apiKey = inputs.getOrDefault("apiKey", "");
             String baseUrl = inputs.getOrDefault("baseUrl", "https://api.openai.com");
 
-            OpenAiApi openAiApi = new OpenAiApi(baseUrl, apiKey);
+            OpenAiApi openAiApi = OpenAiApi.builder()
+                    .baseUrl(baseUrl)
+                    .apiKey(apiKey)
+                    .build();
             OpenAiChatOptions options = OpenAiChatOptions.builder()
                     .model(modelId)
                     .build();
-            return new OpenAiChatModel(openAiApi, options);
+            return OpenAiChatModel.builder()
+                    .openAiApi(openAiApi)
+                    .defaultOptions(options)
+                    .build();
         } catch (Exception e) {
             throw new BusinessException("构建模型失败: " + e.getMessage());
         }
@@ -132,6 +138,39 @@ public class AiService {
                     }
                     return "";
                 });
+    }
+
+    /**
+     * 带工具调用的流式生成
+     * @param toolObjects 含 @Tool 注解方法的对象（如 ScriptAgentTools）
+     */
+    public Flux<String> streamTextWithTools(String agentType, List<ChatMessage> messages,
+                                            Object... toolObjects) {
+        String modelName = resolveModelName(agentType);
+        ChatModel model = buildChatModel(modelName);
+
+        ChatClient chatClient = ChatClient.builder(model).build();
+        var spec = chatClient.prompt().messages(convertMessages(messages));
+        if (toolObjects != null && toolObjects.length > 0) {
+            spec = spec.tools(toolObjects);
+        }
+        return spec.stream().content();
+    }
+
+    /**
+     * 带工具调用的同步生成
+     */
+    public String generateTextWithTools(String agentType, List<ChatMessage> messages,
+                                        Object... toolObjects) {
+        String modelName = resolveModelName(agentType);
+        ChatModel model = buildChatModel(modelName);
+
+        ChatClient chatClient = ChatClient.builder(model).build();
+        var spec = chatClient.prompt().messages(convertMessages(messages));
+        if (toolObjects != null && toolObjects.length > 0) {
+            spec = spec.tools(toolObjects);
+        }
+        return spec.call().content();
     }
 
     /**
