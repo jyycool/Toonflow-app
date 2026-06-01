@@ -51,8 +51,9 @@ public class SkillController {
         }
     }
 
-    @GetMapping("/getSkillContent")
-    public R<Map<String, String>> getSkillContent(@RequestParam String path) {
+    @PostMapping("/getSkillContent")
+    public R<Map<String, String>> getSkillContent(@RequestBody Map<String, String> body) {
+        String path = body.get("path");
         Path skillsRoot = Paths.get(dataDir, "skills");
         Path target = skillsRoot.resolve(path).normalize();
         // 防止路径穿越

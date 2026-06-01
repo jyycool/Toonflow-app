@@ -25,9 +25,10 @@ public class StoryboardController {
         return R.ok(Map.of("message", "新增分镜成功"));
     }
 
-    @GetMapping("/getStoryboardData")
-    public R<List<OStoryboard>> getStoryboardData(@RequestParam Integer projectId,
-                                                    @RequestParam(required = false) Integer scriptId) {
+    @PostMapping("/getStoryboardData")
+    public R<List<OStoryboard>> getStoryboardData(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
+        Integer scriptId = body.get("scriptId");
         LambdaQueryWrapper<OStoryboard> wrapper = new LambdaQueryWrapper<OStoryboard>()
                 .eq(OStoryboard::getProjectId, projectId);
         if (scriptId != null) wrapper.eq(OStoryboard::getScriptId, scriptId);
@@ -56,8 +57,10 @@ public class StoryboardController {
         return R.ok(Map.of("message", "删除成功"));
     }
 
-    @GetMapping("/pollingImage")
-    public R<List<OStoryboard>> pollingImage(@RequestParam List<Integer> ids) {
+    @PostMapping("/pollingImage")
+    public R<List<OStoryboard>> pollingImage(@RequestBody Map<String, List<Integer>> body) {
+        List<Integer> ids = body.get("ids");
+        if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(storyboardMapper.selectList(
                 new LambdaQueryWrapper<OStoryboard>().in(OStoryboard::getId, ids)));
     }

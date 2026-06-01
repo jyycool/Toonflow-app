@@ -27,8 +27,9 @@ public class AgentController {
     private final OAgentWorkDataMapper agentWorkDataMapper;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    @GetMapping("/getMemory")
-    public R<List<Memories>> getMemory(@RequestParam String isolationKey) {
+    @PostMapping("/getMemory")
+    public R<List<Memories>> getMemory(@RequestBody Map<String, String> body) {
+        String isolationKey = body.get("isolationKey");
         return R.ok(memoriesMapper.selectList(
                 new LambdaQueryWrapper<Memories>()
                         .eq(Memories::getIsolationKey, isolationKey)
@@ -41,10 +42,11 @@ public class AgentController {
         return R.ok(Map.of("message", "记忆已清除"));
     }
 
-    @GetMapping("/scriptAgent/getPlanData")
-    public R<OAgentWorkData> getPlanData(@RequestParam Integer projectId,
-                                          @RequestParam Integer episodesId,
-                                          @RequestParam String key) {
+    @PostMapping("/scriptAgent/getPlanData")
+    public R<OAgentWorkData> getPlanData(@RequestBody Map<String, Object> body) {
+        Integer projectId = (Integer) body.get("projectId");
+        Integer episodesId = (Integer) body.get("episodesId");
+        String key = (String) body.get("key");
         return R.ok(agentWorkDataMapper.selectOne(
                 new LambdaQueryWrapper<OAgentWorkData>()
                         .eq(OAgentWorkData::getProjectId, projectId)

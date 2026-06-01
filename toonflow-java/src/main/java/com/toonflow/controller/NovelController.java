@@ -56,8 +56,9 @@ public class NovelController {
         return R.ok(Map.of("message", "新增原文成功"));
     }
 
-    @GetMapping("/getNovel")
-    public R<List<ONovel>> getNovel(@RequestParam Integer projectId) {
+    @PostMapping("/getNovel")
+    public R<List<ONovel>> getNovel(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
         List<ONovel> list = novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>()
                         .eq(ONovel::getProjectId, projectId)
@@ -87,8 +88,9 @@ public class NovelController {
         return R.ok(Map.of("message", "批量删除成功"));
     }
 
-    @GetMapping("/getNovelIndex")
-    public R<List<ONovel>> getNovelIndex(@RequestParam Integer projectId) {
+    @PostMapping("/getNovelIndex")
+    public R<List<ONovel>> getNovelIndex(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
         List<ONovel> list = novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>()
                         .eq(ONovel::getProjectId, projectId)
@@ -97,8 +99,9 @@ public class NovelController {
         return R.ok(list);
     }
 
-    @GetMapping("/getNovelEventState")
-    public R<List<ONovel>> getNovelEventState(@RequestParam Integer projectId) {
+    @PostMapping("/getNovelEventState")
+    public R<List<ONovel>> getNovelEventState(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
         List<ONovel> list = novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>()
                         .eq(ONovel::getProjectId, projectId)

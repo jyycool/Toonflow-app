@@ -35,9 +35,9 @@ public class ProductionController {
 
     // ========== Flow 数据 ==========
 
-    @GetMapping("/getFlowData")
-    public R<OImageFlow> getFlowData(@RequestParam Integer id) {
-        return R.ok(imageFlowMapper.selectById(id));
+    @PostMapping("/getFlowData")
+    public R<OImageFlow> getFlowData(@RequestBody Map<String, Integer> body) {
+        return R.ok(imageFlowMapper.selectById(body.get("id")));
     }
 
     @PostMapping("/saveFlowData")
@@ -50,8 +50,9 @@ public class ProductionController {
         return R.ok(Map.of("id", flow.getId(), "message", "保存成功"));
     }
 
-    @GetMapping("/getStoryboardData")
-    public R<List<OStoryboard>> getStoryboardData(@RequestParam Integer projectId) {
+    @PostMapping("/getStoryboardData")
+    public R<List<OStoryboard>> getStoryboardData(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
         return R.ok(storyboardMapper.selectList(
                 new LambdaQueryWrapper<OStoryboard>()
                         .eq(OStoryboard::getProjectId, projectId)
@@ -60,8 +61,9 @@ public class ProductionController {
 
     // ========== 视频工作台 ==========
 
-    @GetMapping("/workbench/getVideoList")
-    public R<List<OVideo>> getVideoList(@RequestParam Integer projectId) {
+    @PostMapping("/workbench/getVideoList")
+    public R<List<OVideo>> getVideoList(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
         return R.ok(videoMapper.selectList(
                 new LambdaQueryWrapper<OVideo>().eq(OVideo::getProjectId, projectId)));
     }
@@ -106,8 +108,9 @@ public class ProductionController {
         return R.ok(Map.of("message", "更新时长成功"));
     }
 
-    @GetMapping("/workbench/getGenerateData")
-    public R<Map<String, Object>> getGenerateData(@RequestParam Integer projectId) {
+    @PostMapping("/workbench/getGenerateData")
+    public R<Map<String, Object>> getGenerateData(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
         List<OVideoTrack> tracks = videoTrackMapper.selectList(
                 new LambdaQueryWrapper<OVideoTrack>().eq(OVideoTrack::getProjectId, projectId));
         List<OVideo> videos = videoMapper.selectList(
@@ -173,9 +176,9 @@ public class ProductionController {
 
     // ========== 图片编辑 ==========
 
-    @GetMapping("/editImage/getImageFlow")
-    public R<OImageFlow> getImageFlow(@RequestParam Integer id) {
-        return R.ok(imageFlowMapper.selectById(id));
+    @PostMapping("/editImage/getImageFlow")
+    public R<OImageFlow> getImageFlow(@RequestBody Map<String, Integer> body) {
+        return R.ok(imageFlowMapper.selectById(body.get("id")));
     }
 
     @PostMapping("/editImage/saveImageFlow")

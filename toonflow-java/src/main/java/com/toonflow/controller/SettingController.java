@@ -26,7 +26,7 @@ public class SettingController {
 
     // ========== 供应商配置 ==========
 
-    @GetMapping("/vendorConfig/getVendorList")
+    @PostMapping("/vendorConfig/getVendorList")
     public R<List<OVendorConfig>> getVendorList() {
         return R.ok(vendorConfigMapper.selectList(null));
     }
@@ -116,7 +116,7 @@ public class SettingController {
 
     // ========== Agent 部署配置 ==========
 
-    @GetMapping("/agentDeploy/getAgentDeploy")
+    @PostMapping("/agentDeploy/getAgentDeploy")
     public R<List<OAgentDeploy>> getAgentDeploy() {
         return R.ok(agentDeployMapper.selectList(null));
     }
@@ -150,8 +150,9 @@ public class SettingController {
 
     // ========== 提示词管理 ==========
 
-    @GetMapping("/promptManage/getPrompt")
-    public R<List<OPrompt>> getPrompt(@RequestParam(required = false) String type) {
+    @PostMapping("/promptManage/getPrompt")
+    public R<List<OPrompt>> getPrompt(@RequestBody(required = false) Map<String, String> body) {
+        String type = body != null ? body.get("type") : null;
         LambdaQueryWrapper<OPrompt> wrapper = new LambdaQueryWrapper<>();
         if (type != null) wrapper.eq(OPrompt::getType, type);
         return R.ok(promptMapper.selectList(wrapper));
@@ -184,7 +185,7 @@ public class SettingController {
 
     // ========== 版本 ==========
 
-    @GetMapping("/getTextModel")
+    @PostMapping("/getTextModel")
     public R<List<OAgentDeploy>> getTextModel() {
         return R.ok(agentDeployMapper.selectList(
                 new LambdaQueryWrapper<OAgentDeploy>().eq(OAgentDeploy::getType, "text")));

@@ -128,7 +128,7 @@ public class ModelMapController {
     /**
      * 获取图片和视频模型（含已绑定的提示词信息）
      */
-    @GetMapping("/getImageAndVideoModel")
+    @PostMapping("/getImageAndVideoModel")
     public R<List<Map<String, Object>>> getImageAndVideoModel() {
         List<OVendorConfig> vendors = vendorConfigMapper.selectList(
                 new LambdaQueryWrapper<OVendorConfig>().eq(OVendorConfig::getEnable, 1));

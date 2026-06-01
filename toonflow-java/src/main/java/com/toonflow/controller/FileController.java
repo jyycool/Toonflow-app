@@ -47,8 +47,8 @@ public class FileController {
         return R.ok(Map.of("url", url, "fileName", fileName));
     }
 
-    @GetMapping("/common/getBigImage")
-    public R<Map<String, String>> getBigImage(@RequestParam String url) {
-        return R.ok(Map.of("url", url));
+    @PostMapping("/common/getBigImage")
+    public R<Map<String, String>> getBigImage(@RequestBody Map<String, String> body) {
+        return R.ok(Map.of("url", body.get("url")));
     }
 }

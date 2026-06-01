@@ -21,8 +21,10 @@ public class ModelSelectController {
     private final OVendorConfigMapper vendorConfigMapper;
     private final ObjectMapper objectMapper;
 
-    @GetMapping("/getModelList")
-    public R<List<Map<String, Object>>> getModelList(@RequestParam(required = false) String type) {
+    @PostMapping("/getModelList")
+    public R<List<Map<String, Object>>> getModelList(
+            @RequestBody(required = false) Map<String, Object> body) {
+        String type = body != null ? (String) body.get("type") : null;
         List<OVendorConfig> vendors = vendorConfigMapper.selectList(
                 new LambdaQueryWrapper<OVendorConfig>().eq(OVendorConfig::getEnable, 1));
         List<Map<String, Object>> result = new ArrayList<>();
@@ -44,8 +46,10 @@ public class ModelSelectController {
         return R.ok(result);
     }
 
-    @GetMapping("/getModelDetail")
-    public R<Map<String, Object>> getModelDetail(@RequestParam String modelName) {
+    @PostMapping("/getModelDetail")
+    public R<Map<String, Object>> getModelDetail(@RequestBody Map<String, String> body) {
+        String modelName = body.get("modelName");
+        if (modelName == null) return R.ok(null);
         String[] parts = modelName.split(":", 2);
         if (parts.length < 2) return R.ok(null);
         String vendorId = parts[0];

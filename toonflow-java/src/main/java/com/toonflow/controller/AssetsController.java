@@ -30,9 +30,10 @@ public class AssetsController {
         return R.ok(Map.of("message", "新增素材成功"));
     }
 
-    @GetMapping("/getAssetsApi")
-    public R<List<OAssets>> getAssets(@RequestParam Integer projectId,
-                                       @RequestParam(required = false) Integer scriptId) {
+    @PostMapping("/getAssetsApi")
+    public R<List<OAssets>> getAssets(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
+        Integer scriptId = body.get("scriptId");
         LambdaQueryWrapper<OAssets> wrapper = new LambdaQueryWrapper<OAssets>()
                 .eq(OAssets::getProjectId, projectId);
         if (scriptId != null) wrapper.eq(OAssets::getScriptId, scriptId);
@@ -61,9 +62,9 @@ public class AssetsController {
         return R.ok(Map.of("message", "批量删除成功"));
     }
 
-    @GetMapping("/getImage")
-    public R<OImage> getImage(@RequestParam Integer id) {
-        return R.ok(imageMapper.selectById(id));
+    @PostMapping("/getImage")
+    public R<OImage> getImage(@RequestBody Map<String, Integer> body) {
+        return R.ok(imageMapper.selectById(body.get("id")));
     }
 
     @PostMapping("/saveAssets")
@@ -77,14 +78,18 @@ public class AssetsController {
         return R.ok(Map.of("message", "保存成功"));
     }
 
-    @GetMapping("/pollingImageAssets")
-    public R<List<OImage>> pollingImageAssets(@RequestParam List<Integer> ids) {
+    @PostMapping("/pollingImageAssets")
+    public R<List<OImage>> pollingImageAssets(@RequestBody Map<String, List<Integer>> body) {
+        List<Integer> ids = body.get("ids");
+        if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(imageMapper.selectList(
                 new LambdaQueryWrapper<OImage>().in(OImage::getId, ids)));
     }
 
-    @GetMapping("/pollingPromptAssets")
-    public R<List<OAssets>> pollingPromptAssets(@RequestParam List<Integer> ids) {
+    @PostMapping("/pollingPromptAssets")
+    public R<List<OAssets>> pollingPromptAssets(@RequestBody Map<String, List<Integer>> body) {
+        List<Integer> ids = body.get("ids");
+        if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>().in(OAssets::getId, ids)));
     }

@@ -24,8 +24,9 @@ public class GeneralController {
     private final OVideoMapper videoMapper;
     private final OTasksMapper tasksMapper;
 
-    @GetMapping("/general/generalStatistics")
-    public R<Map<String, Object>> generalStatistics(@RequestParam Integer projectId) {
+    @PostMapping("/general/generalStatistics")
+    public R<Map<String, Object>> generalStatistics(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
         Map<String, Object> stats = new HashMap<>();
         stats.put("novelCount", novelMapper.selectCount(
                 new LambdaQueryWrapper<ONovel>().eq(ONovel::getProjectId, projectId)));
@@ -40,9 +41,9 @@ public class GeneralController {
         return R.ok(stats);
     }
 
-    @GetMapping("/general/getSingleProject")
-    public R<OProject> getSingleProject(@RequestParam Long id) {
-        return R.ok(projectMapper.selectById(id));
+    @PostMapping("/general/getSingleProject")
+    public R<OProject> getSingleProject(@RequestBody Map<String, Long> body) {
+        return R.ok(projectMapper.selectById(body.get("id")));
     }
 
     @PostMapping("/general/updateProject")
@@ -70,16 +71,12 @@ public class GeneralController {
         return R.ok(Map.of("message", "数据已清除"));
     }
 
-    @GetMapping("/task/getTaskApi")
-    public R<Object> getTaskApi(@RequestParam Integer projectId) {
+    @PostMapping("/task/getTaskApi")
+    public R<Object> getTaskApi(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
         return R.ok(tasksMapper.selectList(
                 new LambdaQueryWrapper<OTasks>().eq(OTasks::getProjectId, projectId)
                         .orderByDesc(OTasks::getStartTime)));
-    }
-
-    @PostMapping("/task/getTaskApi")
-    public R<Object> getTaskApiPost(@RequestBody Map<String, Integer> body) {
-        return getTaskApi(body.get("projectId"));
     }
 
     @PostMapping("/task/getTaskCategories")

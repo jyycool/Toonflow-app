@@ -52,8 +52,9 @@ public class ScriptController {
         return R.ok(Map.of("message", "批量添加剧本成功"));
     }
 
-    @GetMapping("/getScrptApi")
-    public R<List<OScript>> getScript(@RequestParam Integer projectId) {
+    @PostMapping("/getScrptApi")
+    public R<List<OScript>> getScript(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
         List<OScript> list = scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>()
                         .eq(OScript::getProjectId, projectId)

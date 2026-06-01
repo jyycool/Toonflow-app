@@ -18,7 +18,7 @@ public class ArtStyleController {
     private final OArtStyleMapper artStyleMapper;
     private final AiService aiService;
 
-    @GetMapping("/getArtStyle")
+    @PostMapping("/getArtStyle")
     public R<List<OArtStyle>> getArtStyle() {
         return R.ok(artStyleMapper.selectList(null));
     }

@@ -33,7 +33,7 @@ public class ProjectController {
     @Value("${toonflow.data-dir}")
     private String dataDir;
 
-    @GetMapping("/getProject")
+    @PostMapping("/getProject")
     public R<List<OProject>> getProject() {
         List<OProject> list = projectMapper.selectList(
                 new LambdaQueryWrapper<OProject>().orderByDesc(OProject::getCreateTime));
