@@ -127,4 +127,5 @@ public class StoryboardController {
     @PostMapping("/downPreviewImage")
     public R<List<Map<String, Object>>> downPreviewImage(@RequestBody Map<String, List<Integer>> body) {
         return previewImage(body);
-    }}
+    }
+}

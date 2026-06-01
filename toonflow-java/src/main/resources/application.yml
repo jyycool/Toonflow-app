@@ -15,6 +15,12 @@ spring:
       max-request-size: 100MB
   # Spring AI Alibaba (DashScope)
   ai:
+    # 指定默认 ChatModel/EmbeddingModel 由 DashScope 提供，
+    # 避免 OpenAI starter 同时注册 ChatModel Bean 造成注入歧义。
+    # （OpenAI 兼容供应商在 AiService 中按需手动构建，不依赖自动配置 Bean）
+    model:
+      chat: dashscope
+      embedding: dashscope
     dashscope:
       api-key: ${DASHSCOPE_API_KEY:placeholder}
       chat:
