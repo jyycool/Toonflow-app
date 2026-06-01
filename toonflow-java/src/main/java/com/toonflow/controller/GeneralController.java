@@ -75,4 +75,26 @@ public class GeneralController {
                 new LambdaQueryWrapper<OTasks>().eq(OTasks::getProjectId, projectId)
                         .orderByDesc(OTasks::getStartTime)));
     }
+
+    @PostMapping("/task/getTaskApi")
+    public R<Object> getTaskApiPost(@RequestBody Map<String, Integer> body) {
+        return getTaskApi(body.get("projectId"));
+    }
+
+    @PostMapping("/task/getTaskCategories")
+    public R<List<String>> getTaskCategories() {
+        List<OTasks> tasks = tasksMapper.selectList(
+                new LambdaQueryWrapper<OTasks>().select(OTasks::getTaskClass).groupBy(OTasks::getTaskClass));
+        List<String> categories = tasks.stream()
+                .map(OTasks::getTaskClass)
+                .filter(c -> c != null && !c.isEmpty())
+                .distinct()
+                .toList();
+        return R.ok(categories);
+    }
+
+    @PostMapping("/task/taskDetails")
+    public R<OTasks> taskDetails(@RequestBody Map<String, Integer> body) {
+        return R.ok(tasksMapper.selectById(body.get("id")));
+    }
 }

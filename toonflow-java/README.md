@@ -7,9 +7,10 @@ Toonflow 的 Java 重构版本，使用 Spring Boot 3 + Spring AI Alibaba + MyBa
 | 组件 | 版本 |
 |------|------|
 | Java | 17 |
-| Spring Boot | 3.3.5 |
-| Spring AI Alibaba | 1.0.0-M3.1 |
-| MyBatis-Plus | 3.5.7 |
+| Spring Boot | 3.5.6 |
+| Spring AI | 1.1.2 |
+| Spring AI Alibaba | 1.1.2.0 |
+| MyBatis-Plus | 3.5.9 |
 | SQLite | 3.46.1.3 |
 | Spring Security + JWT | - |
 | Spring WebSocket (STOMP) | - |

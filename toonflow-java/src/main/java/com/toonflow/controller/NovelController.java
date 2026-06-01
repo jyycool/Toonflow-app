@@ -20,6 +20,7 @@ import java.util.Map;
 public class NovelController {
 
     private final ONovelMapper novelMapper;
+    private final com.toonflow.ai.CleanNovelService cleanNovelService;
 
     @PostMapping("/addNovel")
     public R<Map<String, String>> addNovel(@Valid @RequestBody AddNovelRequest req) {
@@ -31,6 +32,7 @@ public class NovelController {
                         .last("LIMIT 1"));
         int lastIndex = last != null ? last.getChapterIndex() : 0;
 
+        List<ONovel> inserted = new java.util.ArrayList<>();
         for (AddNovelRequest.NovelItem item : req.getData()) {
             ONovel novel = new ONovel();
             novel.setProjectId(req.getProjectId());
@@ -41,7 +43,10 @@ public class NovelController {
             novel.setCreateTime(System.currentTimeMillis());
             novel.setEventState(0);
             novelMapper.insert(novel);
+            inserted.add(novel);
         }
+        // 自动清洗生成事件（对应原项目 addNovel 触发 cleanNovel）
+        cleanNovelService.start(inserted, req.getProjectId());
         return R.ok(Map.of("message", "新增原文成功"));
     }
 
@@ -93,6 +98,43 @@ public class NovelController {
                         .eq(ONovel::getProjectId, projectId)
                         .select(ONovel::getId, ONovel::getEventState, ONovel::getErrorReason));
         return R.ok(list);
+    }
+
+    @PostMapping("/getNovelData")
+    public R<List<ONovel>> getNovelData(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
+        return R.ok(novelMapper.selectList(
+                new LambdaQueryWrapper<ONovel>().eq(ONovel::getProjectId, projectId)));
+    }
+
+    /**
+     * 生成章节事件：将选中章节标记为待处理，由后台清洗生成事件
+     * 对应原项目 novel/event/generateEvents（使用 cleanNovel）
+     */
+    @PostMapping("/event/generateEvents")
+    public R<Map<String, String>> generateEvents(@RequestBody GenerateEventsRequest req) {
+        List<ONovel> chapters = novelMapper.selectList(
+                new LambdaQueryWrapper<ONovel>()
+                        .eq(ONovel::getProjectId, req.getProjectId())
+                        .in(ONovel::getId, req.getNovelIds()));
+        if (chapters.isEmpty()) return R.ok(Map.of("message", "没有对应章节"));
+
+        // 重置事件状态
+        for (ONovel novel : chapters) {
+            novel.setEventState(0);
+            novel.setEvent(null);
+            novelMapper.updateById(novel);
+        }
+        // 异步清洗生成事件
+        cleanNovelService.start(chapters, req.getProjectId());
+        return R.ok(Map.of("message", "已提交事件生成任务"));
+    }
+
+    @Data
+    public static class GenerateEventsRequest {
+        @NotNull private Integer projectId;
+        @NotNull private List<Integer> novelIds;
+        private Integer concurrentCount = 5;
     }
 
     @Data

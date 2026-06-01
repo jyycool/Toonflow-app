@@ -75,6 +75,51 @@ public class ScriptController {
         return R.ok(Map.of("message", "删除剧本成功"));
     }
 
+    /**
+     * 导出剧本为 zip（每个剧本一个 .txt）
+     */
+    @PostMapping("/exportScript")
+    public void exportScript(@RequestBody Map<String, List<Integer>> body,
+                             jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
+        List<Integer> ids = body.get("id");
+        if (ids == null || ids.isEmpty()) throw new BusinessException("id不能为空");
+        List<OScript> scripts = scriptMapper.selectList(
+                new LambdaQueryWrapper<OScript>().in(OScript::getId, ids));
+
+        response.setContentType("application/zip");
+        response.setHeader("Content-Disposition", "attachment; filename=scripts.zip");
+        try (java.util.zip.ZipOutputStream zos =
+                     new java.util.zip.ZipOutputStream(response.getOutputStream())) {
+            for (OScript s : scripts) {
+                zos.putNextEntry(new java.util.zip.ZipEntry(s.getName() + ".txt"));
+                byte[] content = (s.getContent() != null ? s.getContent() : "")
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                zos.write(content);
+                zos.closeEntry();
+            }
+        }
+    }
+
+    /**
+     * 提取剧本资产：标记剧本为提取中，由 AI 识别角色/道具/场景
+     * 对应原项目 script/extractAssets（此处提供同步骨架，完整实现需结合 Agent 工具）
+     */
+    @PostMapping("/extractAssets")
+    public R<Map<String, String>> extractAssets(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Integer> scriptIds = (List<Integer>) body.get("scriptIds");
+        if (scriptIds != null) {
+            for (Integer id : scriptIds) {
+                OScript script = scriptMapper.selectById(id);
+                if (script != null) {
+                    script.setExtractState(0);
+                    scriptMapper.updateById(script);
+                }
+            }
+        }
+        return R.ok(Map.of("message", "已提交资产提取任务"));
+    }
+
     @Data
     public static class AddScriptRequest {
         @NotBlank private String name;
