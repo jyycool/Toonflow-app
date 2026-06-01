@@ -3,6 +3,7 @@ package com.toonflow.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.toonflow.common.result.R;
 import com.toonflow.entity.OImageFlow;
+import com.toonflow.entity.OProject;
 import com.toonflow.entity.OStoryboard;
 import com.toonflow.entity.OVideo;
 import com.toonflow.entity.OVideoTrack;
@@ -22,7 +23,12 @@ public class ProductionController {
     private final OVideoMapper videoMapper;
     private final OVideoTrackMapper videoTrackMapper;
     private final OImageFlowMapper imageFlowMapper;
+    private final OProjectMapper projectMapper;
+    private final OAssetsMapper assetsMapper;
+    private final OImageMapper imageMapper;
     private final com.toonflow.ai.vendor.VideoGenerationService videoGenerationService;
+    private final com.toonflow.ai.vendor.MediaGenerationService mediaGenerationService;
+    private final com.toonflow.ai.TaskRecordService taskRecordService;
 
     // ========== Flow 数据 ==========
 
@@ -183,5 +189,81 @@ public class ProductionController {
     public R<Map<String, String>> updateImageFlow(@RequestBody OImageFlow flow) {
         imageFlowMapper.updateById(flow);
         return R.ok(Map.of("message", "更新成功"));
+    }
+
+    /**
+     * 获取项目默认图片模型与质量
+     */
+    @PostMapping("/editImage/getImageDefaultModle")
+    public R<Map<String, Object>> getImageDefaultModle(@RequestBody Map<String, Long> body) {
+        OProject project = projectMapper.selectById(body.get("projectId"));
+        Map<String, Object> result = new java.util.HashMap<>();
+        if (project != null) {
+            result.put("imageModel", project.getImageModel());
+            result.put("imageQuality", project.getImageQuality());
+        }
+        return R.ok(result);
+    }
+
+    /**
+     * 流程图片生成（异步）
+     */
+    @PostMapping("/editImage/generateFlowImage")
+    public R<Map<String, Object>> generateFlowImage(@RequestBody Map<String, Object> body) {
+        Integer projectId = (Integer) body.get("projectId");
+        String prompt = (String) body.getOrDefault("prompt", "");
+        String model = (String) body.get("model");
+        String ratio = (String) body.getOrDefault("ratio", "1:1");
+        Integer taskId = taskRecordService.start(projectId, "流程图片生成", model, prompt, null);
+        try {
+            String url = mediaGenerationService.generateImage(model, prompt, resolveSize(ratio));
+            taskRecordService.done(taskId);
+            return R.ok(Map.of("url", url));
+        } catch (Exception e) {
+            taskRecordService.fail(taskId, e.getMessage());
+            throw new com.toonflow.common.exception.BusinessException("生成失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取分镜/素材的文件地址
+     */
+    @PostMapping("/workbench/getFileUrl")
+    public R<List<Map<String, Object>>> getFileUrl(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("items");
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+        if (items == null) return R.ok(result);
+
+        for (Map<String, Object> item : items) {
+            Integer id = (Integer) item.get("id");
+            String sources = (String) item.get("sources");
+            Map<String, Object> entry = new java.util.HashMap<>();
+            entry.put("id", id);
+            entry.put("sources", sources);
+            if ("storyboard".equals(sources)) {
+                OStoryboard sb = storyboardMapper.selectById(id);
+                entry.put("filePath", sb != null ? sb.getFilePath() : null);
+            } else if ("assets".equals(sources)) {
+                com.toonflow.entity.OAssets asset = assetsMapper.selectById(id);
+                if (asset != null && asset.getImageId() != null) {
+                    com.toonflow.entity.OImage img = imageMapper.selectById(asset.getImageId());
+                    entry.put("filePath", img != null ? img.getFilePath() : null);
+                }
+            }
+            result.add(entry);
+        }
+        return R.ok(result);
+    }
+
+    private String resolveSize(String ratio) {
+        if (ratio == null) return "1024x1024";
+        return switch (ratio) {
+            case "16:9" -> "1280x720";
+            case "9:16" -> "720x1280";
+            case "4:3" -> "1024x768";
+            case "1:1" -> "1024x1024";
+            default -> "1024x1024";
+        };
     }
 }

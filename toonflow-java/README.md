@@ -77,15 +77,34 @@ toonflow:
   data-dir: /path/to/data   # 数据目录（存储 SQLite 文件和媒体文件）
 ```
 
-### 运行
+### 运行（本地）
 
 ```bash
+export DASHSCOPE_API_KEY=你的key
 mvn spring-boot:run
+```
+
+### 运行（Docker）
+
+```bash
+# 方式一：docker compose（推荐）
+export DASHSCOPE_API_KEY=你的key
+docker compose up -d
+
+# 方式二：手动构建
+docker build -t toonflow-java .
+docker run -d -p 10588:10588 \
+  -e DASHSCOPE_API_KEY=你的key \
+  -v toonflow-data:/data \
+  toonflow-java
 ```
 
 服务启动后访问：http://localhost:10588
 
 默认账号：`admin` / `admin123`
+
+> 数据（SQLite + 媒体文件）默认存于 `~/.toonflow`（本地）或 `/data` 卷（Docker），
+> 容器重建不丢失。
 
 ## API 说明
 

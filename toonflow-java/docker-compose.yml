@@ -1,0 +1,20 @@
+services:
+  toonflow:
+    build: .
+    container_name: toonflow-java
+    ports:
+      - "10588:10588"
+    environment:
+      # 阿里云 DashScope（通义千问）API Key，用于默认文本模型与向量化
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY:-}
+      # OpenAI 兼容接口（可选）
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com}
+      - TOONFLOW_DATA_DIR=/data
+    volumes:
+      # 持久化数据库与媒体文件
+      - toonflow-data:/data
+    restart: unless-stopped
+
+volumes:
+  toonflow-data:

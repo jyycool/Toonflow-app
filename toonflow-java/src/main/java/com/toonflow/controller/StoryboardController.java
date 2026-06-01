@@ -67,4 +67,64 @@ public class StoryboardController {
         storyboardMapper.updateById(storyboard);
         return R.ok(Map.of("message", "更新成功"));
     }
-}
+
+    /**
+     * 批量新增分镜信息
+     */
+    @PostMapping("/batchAddStoryboardInfo")
+    public R<Map<String, String>> batchAddStoryboardInfo(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> data = (List<Map<String, Object>>) body.get("data");
+        Integer scriptId = (Integer) body.get("scriptId");
+        Integer projectId = (Integer) body.get("projectId");
+        if (data == null || data.isEmpty()) throw new BusinessException("数据不能为空");
+
+        int index = 0;
+        for (Map<String, Object> item : data) {
+            OStoryboard sb = new OStoryboard();
+            sb.setProjectId(projectId);
+            sb.setScriptId(scriptId);
+            sb.setIndex(index++);
+            sb.setPrompt((String) item.get("prompt"));
+            Object duration = item.get("duration");
+            sb.setDuration(duration != null ? duration.toString() : null);
+            sb.setTrack((String) item.get("track"));
+            sb.setState((String) item.getOrDefault("state", "未生成"));
+            sb.setFilePath((String) item.get("src"));
+            sb.setVideoDesc((String) item.get("videoDesc"));
+            Object shouldGen = item.get("shouldGenerateImage");
+            sb.setShouldGenerateImage(shouldGen != null ? (Integer) shouldGen : 0);
+            sb.setCreateTime(System.currentTimeMillis());
+            storyboardMapper.insert(sb);
+        }
+        return R.ok(Map.of("message", "批量新增分镜成功"));
+    }
+
+    /**
+     * 预览分镜图片（返回有序的文件路径列表）
+     */
+    @PostMapping("/previewImage")
+    public R<List<Map<String, Object>>> previewImage(@RequestBody Map<String, List<Integer>> body) {
+        List<Integer> storyboardIds = body.get("storyboardIds");
+        if (storyboardIds == null || storyboardIds.isEmpty()) return R.ok(List.of());
+
+        List<OStoryboard> storyboards = storyboardMapper.selectList(
+                new LambdaQueryWrapper<OStoryboard>().in(OStoryboard::getId, storyboardIds));
+        Map<Integer, String> pathMap = new java.util.HashMap<>();
+        storyboards.forEach(sb -> pathMap.put(sb.getId(), sb.getFilePath() != null ? sb.getFilePath() : ""));
+
+        // 按入参顺序返回
+        List<Map<String, Object>> ordered = storyboardIds.stream()
+                .map(id -> {
+                    Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("id", id);
+                    m.put("filePath", pathMap.getOrDefault(id, ""));
+                    return m;
+                }).toList();
+        return R.ok(ordered);
+    }
+
+    @PostMapping("/downPreviewImage")
+    public R<List<Map<String, Object>>> downPreviewImage(@RequestBody Map<String, List<Integer>> body) {
+        return previewImage(body);
+    }}
