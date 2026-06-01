@@ -89,6 +89,61 @@ public class AssetsController {
                 new LambdaQueryWrapper<OAssets>().in(OAssets::getId, ids)));
     }
 
+    /**
+     * 新增音频素材（每个 assetsItem 落库为一条 type=audio 的素材）
+     */
+    @PostMapping("/addAudioAssets")
+    public R<Map<String, String>> addAudioAssets(@RequestBody Map<String, Object> body) {
+        Integer projectId = (Integer) body.get("projectId");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("assetsItem");
+        if (items != null) {
+            for (Map<String, Object> item : items) {
+                OAssets asset = new OAssets();
+                asset.setProjectId(projectId);
+                asset.setType("audio");
+                asset.setName((String) item.get("name"));
+                asset.setDescribe((String) item.get("describe"));
+                asset.setPrompt((String) item.get("prompt"));
+                asset.setStartTime(System.currentTimeMillis());
+                assetsMapper.insert(asset);
+            }
+        }
+        return R.ok(Map.of("message", "新增音频素材成功"));
+    }
+
+    @PostMapping("/updateAudioAssets")
+    public R<Map<String, String>> updateAudioAssets(@RequestBody OAssets asset) {
+        assetsMapper.updateById(asset);
+        return R.ok(Map.of("message", "更新音频素材成功"));
+    }
+
+    /**
+     * 获取素材数据（type=clip，联查图片）
+     */
+    @PostMapping("/getMaterialData")
+    public R<List<OAssets>> getMaterialData(@RequestBody Map<String, Integer> body) {
+        Integer projectId = body.get("projectId");
+        return R.ok(assetsMapper.selectList(
+                new LambdaQueryWrapper<OAssets>()
+                        .eq(OAssets::getProjectId, projectId)
+                        .eq(OAssets::getType, "clip")));
+    }
+
+    @PostMapping("/batchGenerationData")
+    public R<List<OAssets>> batchGenerationData(@RequestBody Map<String, Object> body) {
+        Integer projectId = (Integer) body.get("projectId");
+        return R.ok(assetsMapper.selectList(
+                new LambdaQueryWrapper<OAssets>().eq(OAssets::getProjectId, projectId)));
+    }
+
+    @PostMapping("/delImage")
+    public R<Map<String, String>> delImage(@RequestBody Map<String, Integer> body) {
+        Integer id = body.get("id");
+        if (id != null) imageMapper.deleteById(id);
+        return R.ok(Map.of("message", "删除图片成功"));
+    }
+
     @Data
     public static class BatchGenerationData {
         @NotNull private Integer projectId;
