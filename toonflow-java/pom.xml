@@ -81,10 +81,16 @@
       <artifactId>spring-boot-starter-security</artifactId>
     </dependency>
 
-    <!-- Spring AI Alibaba (DashScope / Qwen) -->
+    <!-- Spring AI Alibaba DashScope（1.1.2.0 拆为 model + autoconfigure，不在 BOM 中需显式版本） -->
     <dependency>
       <groupId>com.alibaba.cloud.ai</groupId>
-      <artifactId>spring-ai-alibaba-starter</artifactId>
+      <artifactId>spring-ai-alibaba-dashscope</artifactId>
+      <version>${spring-ai-alibaba.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>com.alibaba.cloud.ai</groupId>
+      <artifactId>spring-ai-alibaba-autoconfigure-dashscope</artifactId>
+      <version>${spring-ai-alibaba.version}</version>
     </dependency>
 
     <!-- Spring AI OpenAI (for OpenAI-compatible vendors)，版本由 spring-ai-bom 管理 -->
@@ -97,6 +103,12 @@
     <dependency>
       <groupId>com.baomidou</groupId>
       <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+      <version>${mybatis-plus.version}</version>
+    </dependency>
+    <!-- 分页插件 PaginationInnerInterceptor（3.5.6+ 拆分到此模块） -->
+    <dependency>
+      <groupId>com.baomidou</groupId>
+      <artifactId>mybatis-plus-jsqlparser</artifactId>
       <version>${mybatis-plus.version}</version>
     </dependency>
 
