@@ -2,6 +2,7 @@ package com.toonflow.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.toonflow.ai.AiService;
+import com.toonflow.ai.agent.ProductionAgentService;
 import com.toonflow.ai.agent.ScriptAgentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,30 @@ public class AgentWebSocketHandler {
     private final SimpMessagingTemplate messagingTemplate;
     private final AiService aiService;
     private final ScriptAgentService scriptAgentService;
+    private final ProductionAgentService productionAgentService;
     private final ObjectMapper objectMapper;
+
+    /**
+     * 制作 Agent 入口
+     * payload: { sessionId, isolationKey, projectId, message }
+     */
+    @MessageMapping("/productionAgent")
+    @Async
+    public void handleProductionAgent(@Payload Map<String, Object> payload) {
+        String sessionId = (String) payload.get("sessionId");
+        String isolationKey = (String) payload.getOrDefault("isolationKey", sessionId);
+        String userMessage = (String) payload.getOrDefault("message", "");
+        Long projectId = payload.get("projectId") != null
+                ? Long.valueOf(payload.get("projectId").toString()) : null;
+
+        try {
+            productionAgentService.runDecision(sessionId, isolationKey, projectId, userMessage);
+        } catch (Exception e) {
+            log.error("制作 Agent WebSocket 处理失败", e);
+            messagingTemplate.convertAndSend("/topic/agent/" + sessionId,
+                    Map.of("type", "error", "message", e.getMessage()));
+        }
+    }
 
     /**
      * 剧本 Agent 入口：使用记忆 + 项目信息编排

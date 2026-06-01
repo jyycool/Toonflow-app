@@ -22,6 +22,7 @@ public class ProductionController {
     private final OVideoMapper videoMapper;
     private final OVideoTrackMapper videoTrackMapper;
     private final OImageFlowMapper imageFlowMapper;
+    private final com.toonflow.ai.vendor.VideoGenerationService videoGenerationService;
 
     // ========== Flow 数据 ==========
 
@@ -105,10 +106,60 @@ public class ProductionController {
         return R.ok(Map.of("tracks", tracks, "videos", videos));
     }
 
-    @GetMapping("/workbench/checkVideoStateList")
-    public R<List<OVideo>> checkVideoStateList(@RequestParam List<Integer> ids) {
+    @PostMapping("/workbench/checkVideoStateList")
+    public R<List<OVideo>> checkVideoStateList(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Integer> videoIds = (List<Integer>) body.get("videoIds");
+        if (videoIds == null || videoIds.isEmpty()) return R.ok(List.of());
         return R.ok(videoMapper.selectList(
-                new LambdaQueryWrapper<OVideo>().in(OVideo::getId, ids)));
+                new LambdaQueryWrapper<OVideo>()
+                        .in(OVideo::getId, videoIds)
+                        .in(OVideo::getState, List.of("生成成功", "生成失败"))));
+    }
+
+    /**
+     * 生成视频（异步任务，立即返回，后台执行并更新状态）
+     */
+    @PostMapping("/workbench/generateVideo")
+    public R<Map<String, Object>> generateVideo(@RequestBody Map<String, Object> body) {
+        Integer projectId = (Integer) body.get("projectId");
+        Integer scriptId = (Integer) body.get("scriptId");
+        Integer videoTrackId = (Integer) body.get("videoTrackId");
+        String prompt = (String) body.getOrDefault("prompt", "");
+
+        // 创建视频记录，状态为生成中
+        OVideo video = new OVideo();
+        video.setProjectId(projectId);
+        video.setScriptId(scriptId);
+        video.setVideoTrackId(videoTrackId);
+        video.setState("生成中");
+        video.setTime(System.currentTimeMillis());
+        videoMapper.insert(video);
+
+        videoGenerationService.asyncGenerate(video.getId(), projectId, prompt);
+
+        return R.ok(Map.of("videoId", video.getId(), "message", "已提交视频生成任务"));
+    }
+
+    @PostMapping("/workbench/batchGenerateVideo")
+    public R<Map<String, String>> batchGenerateVideo(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> tasks = (List<Map<String, Object>>) body.get("tasks");
+        Integer projectId = (Integer) body.get("projectId");
+        if (tasks != null) {
+            for (Map<String, Object> t : tasks) {
+                OVideo video = new OVideo();
+                video.setProjectId(projectId);
+                video.setScriptId((Integer) t.get("scriptId"));
+                video.setVideoTrackId((Integer) t.get("videoTrackId"));
+                video.setState("生成中");
+                video.setTime(System.currentTimeMillis());
+                videoMapper.insert(video);
+                videoGenerationService.asyncGenerate(video.getId(), projectId,
+                        (String) t.getOrDefault("prompt", ""));
+            }
+        }
+        return R.ok(Map.of("message", "已提交批量视频生成任务"));
     }
 
     // ========== 图片编辑 ==========

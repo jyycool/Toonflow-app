@@ -146,18 +146,7 @@ public class SettingController {
         return R.ok(Map.of("message", "修改密码成功"));
     }
 
-    // ========== DB 配置 ==========
-
-    @GetMapping("/dbConfig/dbInfo")
-    public R<Map<String, Object>> dbInfo() {
-        long total = 0;
-        return R.ok(Map.of("total", total));
-    }
-
-    @PostMapping("/dbConfig/clearData")
-    public R<Map<String, String>> clearData() {
-        return R.ok(Map.of("message", "清除成功"));
-    }
+    // ========== DB 配置见 DataConfigController ==========
 
     // ========== 版本 ==========
 
