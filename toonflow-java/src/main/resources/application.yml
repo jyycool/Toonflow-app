@@ -20,6 +20,9 @@ spring:
       chat:
         options:
           model: qwen-max
+      embedding:
+        options:
+          model: text-embedding-v2
     openai:
       api-key: ${OPENAI_API_KEY:placeholder}
       base-url: ${OPENAI_BASE_URL:https://api.openai.com}

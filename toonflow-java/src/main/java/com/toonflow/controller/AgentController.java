@@ -2,6 +2,7 @@ package com.toonflow.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.toonflow.ai.AiService;
+import com.toonflow.ai.MemoryService;
 import com.toonflow.common.result.R;
 import com.toonflow.entity.Memories;
 import com.toonflow.entity.OAgentWorkData;
@@ -21,6 +22,7 @@ import java.util.Map;
 public class AgentController {
 
     private final AiService aiService;
+    private final MemoryService memoryService;
     private final MemoriesMapper memoriesMapper;
     private final OAgentWorkDataMapper agentWorkDataMapper;
 
@@ -34,9 +36,7 @@ public class AgentController {
 
     @PostMapping("/clearMemory")
     public R<Map<String, String>> clearMemory(@RequestBody Map<String, String> body) {
-        memoriesMapper.delete(
-                new LambdaQueryWrapper<Memories>()
-                        .eq(Memories::getIsolationKey, body.get("isolationKey")));
+        memoryService.clear(body.get("isolationKey"));
         return R.ok(Map.of("message", "记忆已清除"));
     }
 
