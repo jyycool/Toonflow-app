@@ -27,11 +27,8 @@ public class VideoGenerationService {
     private final OVideoMapper videoMapper;
     private final OProjectMapper projectMapper;
 
-    private static final int MAX_POLL_ATTEMPTS = 60;
-    private static final long POLL_INTERVAL_MS = 5000;
-
     /**
-     * 异步生成视频：提交任务 -> 轮询 -> 更新状态
+     * 异步生成视频：委托适配器完成提交+轮询，再更新状态
      */
     @Async
     public void asyncGenerate(Integer videoId, Integer projectId, String prompt) {
@@ -42,14 +39,8 @@ public class VideoGenerationService {
                 "视频#" + videoId, null);
 
         try {
-            // 提交视频生成任务
-            String externalTaskId = mediaGenerationService.submitVideoTask(videoModel, prompt, null);
-            if (externalTaskId == null) {
-                throw new RuntimeException("视频任务提交未返回任务 ID");
-            }
-
-            // 轮询任务状态（此处为骨架，实际需调用厂商查询接口）
-            String videoUrl = pollVideoTask(videoModel, externalTaskId);
+            // 适配器内部完成「提交任务 + 轮询 + 返回最终地址」并落盘
+            String videoUrl = mediaGenerationService.generateVideo(videoModel, prompt, null, "16:9");
 
             OVideo video = videoMapper.selectById(videoId);
             if (video != null) {
@@ -68,22 +59,5 @@ public class VideoGenerationService {
             }
             taskRecordService.fail(taskId, e.getMessage());
         }
-    }
-
-    /**
-     * 轮询视频任务状态
-     * 注：具体查询接口因厂商而异，此处提供轮询框架，
-     * 实际部署时需在 MediaGenerationService 中实现 queryVideoTask。
-     */
-    private String pollVideoTask(String videoModel, String externalTaskId)
-            throws InterruptedException {
-        for (int attempt = 0; attempt < MAX_POLL_ATTEMPTS; attempt++) {
-            Thread.sleep(POLL_INTERVAL_MS);
-            // String status = mediaGenerationService.queryVideoTask(videoModel, externalTaskId);
-            // if ("succeeded".equals(status)) return videoUrl;
-            // if ("failed".equals(status)) throw new RuntimeException("厂商返回失败");
-            log.debug("轮询视频任务 {} 第 {} 次", externalTaskId, attempt + 1);
-        }
-        throw new RuntimeException("视频生成超时");
     }
 }

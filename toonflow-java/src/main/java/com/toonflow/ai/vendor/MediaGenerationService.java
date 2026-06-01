@@ -1,12 +1,11 @@
 package com.toonflow.ai.vendor;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.toonflow.ai.vendor.dto.ImageConfig;
+import com.toonflow.ai.vendor.dto.VideoConfig;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
 
 import java.io.IOException;
 import java.net.URI;
@@ -16,6 +15,7 @@ import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -23,8 +23,8 @@ import java.util.UUID;
  * 图片/视频/语音生成服务
  * 对应原项目 ai.ts 中的 imageRequest / videoRequest / ttsRequest
  *
- * 采用 OpenAI 兼容的图片生成接口；不同厂商可按 modelId 前缀扩展分支。
- * 生成的媒体文件落盘到数据目录，返回相对 URL。
+ * 通过 VendorAdapterRegistry 按 vendorId 路由到对应厂商适配器，
+ * 适配器返回 URL 或 base64，本服务负责统一落盘并返回相对 URL。
  */
 @Slf4j
 @Service
@@ -32,52 +32,31 @@ import java.util.UUID;
 public class MediaGenerationService {
 
     private final VendorService vendorService;
-    private final ObjectMapper objectMapper;
+    private final VendorAdapterRegistry adapterRegistry;
 
     @Value("${toonflow.data-dir}")
     private String dataDir;
 
-    private final RestClient restClient = RestClient.create();
-
     /**
      * 图片生成
      * @param vendorModel 格式 vendorId:modelId
-     * @param prompt 提示词
-     * @return 生成图片的相对 URL
+     * @return 生成图片的相对 URL（落盘后）
      */
     public String generateImage(String vendorModel, String prompt, String size) {
         String[] parts = vendorModel.split(":", 2);
         String vendorId = parts[0];
         String modelId = parts.length > 1 ? parts[1] : "";
         Map<String, String> inputs = vendorService.getInputs(vendorId);
-        String apiKey = inputs.getOrDefault("apiKey", "");
-        String baseUrl = inputs.getOrDefault("baseUrl", "https://api.openai.com");
+
+        ImageConfig config = new ImageConfig();
+        config.setPrompt(prompt);
+        config.setResolution(size != null ? size : "1024x1024");
+        config.setModelId(modelId);
 
         try {
-            JsonNode response = restClient.post()
-                    .uri(baseUrl + "/v1/images/generations")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .body(Map.of(
-                            "model", modelId,
-                            "prompt", prompt,
-                            "size", size != null ? size : "1024x1024",
-                            "n", 1))
-                    .retrieve()
-                    .body(JsonNode.class);
-
-            JsonNode dataNode = response != null ? response.path("data").path(0) : null;
-            if (dataNode == null || dataNode.isMissingNode()) {
-                throw new RuntimeException("图片生成响应为空");
-            }
-
-            // 支持 url 或 b64_json 两种返回
-            if (dataNode.has("url")) {
-                return downloadToLocal(dataNode.get("url").asText(), "oss", ".png");
-            } else if (dataNode.has("b64_json")) {
-                return saveBase64(dataNode.get("b64_json").asText(), "oss", ".png");
-            }
-            throw new RuntimeException("未识别的图片返回格式");
+            VendorAdapter adapter = adapterRegistry.get(vendorId);
+            String result = adapter.imageRequest(config, inputs);
+            return persist(result, "oss", ".png");
         } catch (Exception e) {
             log.error("图片生成失败: {}", e.getMessage());
             throw new RuntimeException("图片生成失败: " + e.getMessage(), e);
@@ -85,31 +64,54 @@ public class MediaGenerationService {
     }
 
     /**
-     * 视频生成（异步任务，返回任务标识，需轮询）
-     * 不同厂商接口差异较大，此处提供通用提交骨架。
+     * 视频生成（适配器内部完成提交+轮询，返回最终地址）
+     * @param vendorModel 格式 vendorId:modelId
+     * @return 生成视频的相对 URL（落盘后）
      */
-    public String submitVideoTask(String vendorModel, String prompt, String imageUrl) {
+    public String generateVideo(String vendorModel, String prompt, String imageUrl, String aspectRatio) {
         String[] parts = vendorModel.split(":", 2);
         String vendorId = parts[0];
         String modelId = parts.length > 1 ? parts[1] : "";
         Map<String, String> inputs = vendorService.getInputs(vendorId);
-        String apiKey = inputs.getOrDefault("apiKey", "");
-        String baseUrl = inputs.getOrDefault("baseUrl", "");
+
+        VideoConfig config = new VideoConfig();
+        config.setPrompt(prompt);
+        config.setModelId(modelId);
+        config.setAspectRatio(aspectRatio != null ? aspectRatio : "16:9");
+        if (imageUrl != null) config.setReferenceList(List.of(imageUrl));
 
         try {
-            JsonNode response = restClient.post()
-                    .uri(baseUrl + "/v1/video/generations")
-                    .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
-                    .body(Map.of("model", modelId, "prompt", prompt,
-                            "image", imageUrl != null ? imageUrl : ""))
-                    .retrieve()
-                    .body(JsonNode.class);
-            return response != null && response.has("id") ? response.get("id").asText() : null;
+            VendorAdapter adapter = adapterRegistry.get(vendorId);
+            String result = adapter.videoRequest(config, inputs);
+            return persist(result, "oss", ".mp4");
         } catch (Exception e) {
-            log.error("视频任务提交失败: {}", e.getMessage());
-            throw new RuntimeException("视频任务提交失败: " + e.getMessage(), e);
+            log.error("视频生成失败: {}", e.getMessage());
+            throw new RuntimeException("视频生成失败: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * 兼容旧调用：视频任务提交（同步等待返回最终地址）
+     * @deprecated 改用 generateVideo
+     */
+    @Deprecated
+    public String submitVideoTask(String vendorModel, String prompt, String imageUrl) {
+        return generateVideo(vendorModel, prompt, imageUrl, "16:9");
+    }
+
+    /**
+     * 将适配器返回结果（url 或 base64）落盘，返回相对 URL
+     */
+    private String persist(String result, String subDir, String ext) throws IOException, InterruptedException {
+        if (result == null || result.isEmpty()) {
+            throw new RuntimeException("生成结果为空");
+        }
+        if (result.startsWith("http://") || result.startsWith("https://")) {
+            return downloadToLocal(result, subDir, ext);
+        }
+        // data:image/png;base64,xxx 或纯 base64
+        String b64 = result.contains(",") ? result.substring(result.indexOf(',') + 1) : result;
+        return saveBase64(b64, subDir, ext);
     }
 
     private String downloadToLocal(String url, String subDir, String ext) throws IOException, InterruptedException {
