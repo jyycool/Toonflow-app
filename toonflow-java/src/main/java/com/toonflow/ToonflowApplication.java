@@ -7,7 +7,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
 @MapperScan("com.toonflow.mapper")
-@EnableAsync
+@EnableAsync(proxyTargetClass = true)
 public class ToonflowApplication {
     public static void main(String[] args) {
         SpringApplication.run(ToonflowApplication.class, args);
