@@ -214,7 +214,6 @@ public class GenerateController {
     @PostMapping("/assetsGenerate/batchPolishAssetsPrompt")
     public R<Map<String, String>> batchPolishAssetsPrompt(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        @SuppressWarnings("unchecked")
         List<Number> raw_assetIds = (List<Number>) body.get("assetIds");
         List<Integer> assetIds = raw_assetIds != null ? raw_assetIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (assetIds != null) {

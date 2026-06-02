@@ -93,7 +93,6 @@ public class CornerScapeController {
     public R<Map<String, String>> updateAssetsAudio(@RequestBody Map<String, Object> body) {
         Integer assetsId = body.get("assetsId") != null ? ((Number) body.get("assetsId")).intValue() : null;
         @SuppressWarnings("unchecked")
-        @SuppressWarnings("unchecked")
         List<Number> raw_audioIds = (List<Number>) body.get("audioIds");
         List<Integer> audioIds = raw_audioIds != null ? raw_audioIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (audioIds != null && audioIds.size() > 1) {
@@ -129,7 +128,6 @@ public class CornerScapeController {
     @PostMapping("/batchBindAudio")
     public R<Map<String, String>> batchBindAudio(@RequestBody Map<String, Object> body) {
         Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
-        @SuppressWarnings("unchecked")
         @SuppressWarnings("unchecked")
         List<Number> raw_assetsIds = (List<Number>) body.get("assetsIds");
         List<Integer> assetsIds = raw_assetsIds != null ? raw_assetsIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;

@@ -121,7 +121,6 @@ public class ProductionController {
     @PostMapping("/workbench/checkVideoStateList")
     public R<List<OVideo>> checkVideoStateList(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        @SuppressWarnings("unchecked")
         List<Number> raw_videoIds = (List<Number>) body.get("videoIds");
         List<Integer> videoIds = raw_videoIds != null ? raw_videoIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (videoIds == null || videoIds.isEmpty()) return R.ok(List.of());
@@ -349,7 +348,6 @@ public class ProductionController {
     @PostMapping("/assets/batchGenerateAssetsImage")
     public R<Map<String, String>> batchGenerateAssetsImage(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        @SuppressWarnings("unchecked")
         List<Number> raw_assetIds = (List<Number>) body.get("assetIds");
         List<Integer> assetIds = raw_assetIds != null ? raw_assetIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
@@ -418,7 +416,6 @@ public class ProductionController {
 
     @PostMapping("/workbench/batchGeneratePrompt")
     public R<Map<String, String>> batchGeneratePrompt(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked")
         @SuppressWarnings("unchecked")
         List<Number> raw_trackIds = (List<Number>) body.get("trackIds");
         List<Integer> trackIds = raw_trackIds != null ? raw_trackIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
