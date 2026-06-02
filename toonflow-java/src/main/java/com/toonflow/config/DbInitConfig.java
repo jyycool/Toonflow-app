@@ -465,7 +465,8 @@ public class DbInitConfig implements ApplicationRunner {
             config.setId(id);
             config.setEnable("toonflow".equals(id) ? 1 : 0);
             config.setInputValues("{}");
-            config.setModels("[]");
+            String models = loadResource("default-data/vendor-models/" + id + ".json");
+            config.setModels(models.isEmpty() ? "[]" : models);
             vendorConfigMapper.insert(config);
         }
     }

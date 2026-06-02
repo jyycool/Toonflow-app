@@ -1,0 +1,275 @@
+[
+  {
+    "name": "Doubao-Seed-2.0-Pro",
+    "modelId": "doubao-seed-2-0-pro-260215",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-2.0-Lite",
+    "modelId": "doubao-seed-2-0-lite-260215",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-2.0-Mini",
+    "modelId": "doubao-seed-2-0-mini-260215",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-2.0-Code-Preview",
+    "modelId": "doubao-seed-2-0-code-preview-260215",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-Character",
+    "modelId": "doubao-seed-character-251128",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Doubao-Seed-1.8",
+    "modelId": "doubao-seed-1-8-251228",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-Code-Preview",
+    "modelId": "doubao-seed-code-preview-251028",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-1.6-Lite",
+    "modelId": "doubao-seed-1-6-lite-251015",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-1.6-Flash(0828)",
+    "modelId": "doubao-seed-1-6-flash-250828",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-1.6-Vision",
+    "modelId": "doubao-seed-1-6-vision-250815",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-1.6(1015)",
+    "modelId": "doubao-seed-1-6-251015",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-1.6(0615)",
+    "modelId": "doubao-seed-1-6-250615",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-1.6-Flash(0615)",
+    "modelId": "doubao-seed-1-6-flash-250615",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Doubao-Seed-Translation",
+    "modelId": "doubao-seed-translation-250915",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Doubao-1.5-Pro-32K",
+    "modelId": "doubao-1-5-pro-32k-250115",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Doubao-1.5-Pro-32K-Character(0715)",
+    "modelId": "doubao-1-5-pro-32k-character-250715",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Doubao-1.5-Pro-32K-Character(0228)",
+    "modelId": "doubao-1-5-pro-32k-character-250228",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Doubao-1.5-Lite-32K",
+    "modelId": "doubao-1-5-lite-32k-250115",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Doubao-1.5-Vision-Pro-32K",
+    "modelId": "doubao-1-5-vision-pro-32k-250115",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "GLM-4-7",
+    "modelId": "glm-4-7-251222",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "DeepSeek-V3-2",
+    "modelId": "deepseek-v3-2-251201",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "DeepSeek-V3-1-Terminus",
+    "modelId": "deepseek-v3-1-terminus",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "DeepSeek-V3(0324)",
+    "modelId": "deepseek-v3-250324",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "DeepSeek-R1(0528)",
+    "modelId": "deepseek-r1-250528",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Qwen3-32B",
+    "modelId": "qwen3-32b-20250429",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Qwen3-14B",
+    "modelId": "qwen3-14b-20250429",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Qwen3-8B",
+    "modelId": "qwen3-8b-20250429",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Qwen3-0.6B",
+    "modelId": "qwen3-0-6b-20250429",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Qwen2.5-72B",
+    "modelId": "qwen2-5-72b-20240919",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "GLM-4.5-Air",
+    "modelId": "glm-4-5-air",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Seedream-5.0",
+    "modelId": "doubao-seedream-5-0-260128",
+    "type": "image"
+  },
+  {
+    "name": "Seedream-5.0-Lite",
+    "modelId": "doubao-seedream-5-0-lite-260128",
+    "type": "image"
+  },
+  {
+    "name": "Seedream-4.5",
+    "modelId": "doubao-seedream-4-5-251128",
+    "type": "image"
+  },
+  {
+    "name": "Seedream-4.0",
+    "modelId": "doubao-seedream-4-0-250828",
+    "type": "image"
+  },
+  {
+    "name": "Seedream-3.0-T2I",
+    "modelId": "doubao-seedream-3-0-t2i-250415",
+    "type": "image"
+  },
+  {
+    "name": "Seedance-2.0(音画同生)",
+    "modelId": "doubao-seedance-2-0-260128",
+    "type": "video",
+    "mode": [
+      "text",
+      "startFrameOptional",
+      "[\"imageReference:9",
+      "videoReference:3",
+      "audioReference:3"
+    ]
+  },
+  {
+    "name": "Seedance-2.0-Fast(音画同生)",
+    "modelId": "doubao-seedance-2-0-fast-260128",
+    "type": "video",
+    "mode": [
+      "text",
+      "startFrameOptional",
+      "[\"imageReference:9",
+      "videoReference:3",
+      "audioReference:3"
+    ]
+  },
+  {
+    "name": "Seedance-1.5-Pro(音画同生)",
+    "modelId": "doubao-seedance-1-5-pro-251215",
+    "type": "video",
+    "mode": [
+      "text",
+      "startFrameOptional"
+    ]
+  },
+  {
+    "name": "Seedance-1.0-Pro",
+    "modelId": "doubao-seedance-1-0-pro-250528",
+    "type": "video",
+    "mode": [
+      "text",
+      "startFrameOptional"
+    ]
+  },
+  {
+    "name": "Seedance-1.0-Pro-Fast",
+    "modelId": "doubao-seedance-1-0-pro-fast-251015",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage"
+    ]
+  },
+  {
+    "name": "Seedance-1.0-Lite-T2V",
+    "modelId": "doubao-seedance-1-0-lite-t2v-250428",
+    "type": "video",
+    "mode": [
+      "text"
+    ]
+  },
+  {
+    "name": "Seedance-1.0-Lite-I2V",
+    "modelId": "doubao-seedance-1-0-lite-i2v-250428",
+    "type": "video",
+    "mode": [
+      "startFrameOptional",
+      "[\"imageReference:4"
+    ]
+  }
+]

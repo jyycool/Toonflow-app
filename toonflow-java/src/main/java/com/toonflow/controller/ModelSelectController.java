@@ -30,16 +30,21 @@ public class ModelSelectController {
         List<Map<String, Object>> result = new ArrayList<>();
         for (OVendorConfig vendor : vendors) {
             try {
-                if (vendor.getModels() != null) {
-                    List<Map<String, Object>> models = objectMapper.readValue(
-                            vendor.getModels(), new TypeReference<>() {});
-                    for (Map<String, Object> model : models) {
-                        if (type == null || type.equals(model.get("type"))) {
-                            model.put("vendorId", vendor.getId());
-                            model.put("modelName", vendor.getId() + ":" + model.get("modelId"));
-                            result.add(model);
-                        }
-                    }
+                if (vendor.getModels() == null) continue;
+                List<Map<String, Object>> models = objectMapper.readValue(
+                        vendor.getModels(), new TypeReference<>() {});
+                for (Map<String, Object> model : models) {
+                    String modelType = (String) model.get("type");
+                    // type=all 时排除 video（与原始逻辑一致）
+                    if ("all".equals(type) && "video".equals(modelType)) continue;
+                    if (type != null && !"all".equals(type) && !type.equals(modelType)) continue;
+                    Map<String, Object> item = new java.util.HashMap<>();
+                    item.put("id", vendor.getId());
+                    item.put("label", model.get("name"));
+                    item.put("value", model.get("modelId"));
+                    item.put("type", modelType);
+                    item.put("name", vendor.getId());   // 供应商名称（原始用 vendorData.name，Java 暂用 id）
+                    result.add(item);
                 }
             } catch (Exception ignored) {}
         }

@@ -1,0 +1,95 @@
+[
+  {
+    "name": "ViduQ3 turbo",
+    "modelId": "ViduQ3-turbo",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired",
+      "text"
+    ]
+  },
+  {
+    "name": "ViduQ3 pro",
+    "modelId": "ViduQ3-pro",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired",
+      "text"
+    ]
+  },
+  {
+    "name": "ViduQ2 pro fast",
+    "modelId": "ViduQ2-pro-fast",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "viduQ2 turbo",
+    "modelId": "ViduQ2-turbo",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "ViduQ2 pro",
+    "modelId": "ViduQ2-pro",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "ViduQ2",
+    "modelId": "ViduQ2",
+    "type": "video",
+    "mode": [
+      "text"
+    ]
+  },
+  {
+    "name": "ViduQ1",
+    "modelId": "ViduQ1",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired",
+      "text"
+    ]
+  },
+  {
+    "name": "ViduQ1 classic",
+    "modelId": "viduQ1-classic",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "Vidu2.0",
+    "modelId": "vidu2.0",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "viduq1 for image",
+    "modelId": "viduq1",
+    "type": "image"
+  },
+  {
+    "name": "viduq2 for image",
+    "modelId": "viduq2",
+    "type": "image"
+  }
+]

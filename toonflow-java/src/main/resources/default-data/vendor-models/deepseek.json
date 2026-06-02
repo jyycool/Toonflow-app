@@ -1,0 +1,14 @@
+[
+  {
+    "name": "DeepSeek V4 Pro",
+    "modelId": "deepseek-v4-pro",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "DeepSeek V4 Flash",
+    "modelId": "deepseek-v4-flash",
+    "type": "text",
+    "think": true
+  }
+]

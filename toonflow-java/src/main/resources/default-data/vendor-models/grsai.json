@@ -1,0 +1,22 @@
+[
+  {
+    "name": "GPT Image 2",
+    "modelId": "gpt-image-2",
+    "type": "image"
+  },
+  {
+    "name": "Nano Banana Fast",
+    "modelId": "nano-banana-fast",
+    "type": "image"
+  },
+  {
+    "name": "Nano Banana 2",
+    "modelId": "nano-banana-2",
+    "type": "image"
+  },
+  {
+    "name": "Nano Banana Pro",
+    "modelId": "nano-banana-pro",
+    "type": "image"
+  }
+]

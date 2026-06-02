@@ -1,0 +1,120 @@
+[
+  {
+    "name": "claude-sonnet-4-6",
+    "modelId": "claude-sonnet-4-6",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "claude-opus-4-6",
+    "modelId": "claude-opus-4-6",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "claude-sonnet-4-5-20250929",
+    "modelId": "claude-sonnet-4-5-20250929",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "claude-opus-4-5-20251101",
+    "modelId": "claude-opus-4-5-20251101",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "claude-haiku-4-5-20251001",
+    "modelId": "claude-haiku-4-5-20251001",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "gpt-5.4",
+    "modelId": "gpt-5.4",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "gpt-5.2",
+    "modelId": "gpt-5.2",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "MiniMax-M2.7",
+    "modelId": "MiniMax-M2.7",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "MiniMax-M2.5",
+    "modelId": "MiniMax-M2.5",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "Wan2.6 I2V 1080P (支持真人)",
+    "modelId": "Wan2.6-I2V-1080P",
+    "type": "video",
+    "mode": [
+      "text",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "Wan2.6 I2V 720P (支持真人)",
+    "modelId": "Wan2.6-I2V-720P",
+    "type": "video",
+    "mode": [
+      "text",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "Seedance 1.5 Pro",
+    "modelId": "doubao-seedance-1-5-pro-251215",
+    "type": "video",
+    "mode": [
+      "text",
+      "endFrameOptional"
+    ]
+  },
+  {
+    "name": "vidu2 turbo",
+    "modelId": "ViduQ2-turbo",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "ViduQ3 pro",
+    "modelId": "ViduQ3-pro",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "ViduQ2 pro",
+    "modelId": "ViduQ2-pro",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "Doubao Seedream 5.0 Lite",
+    "modelId": "Doubao-Seedream-5.0-Lite",
+    "type": "image"
+  },
+  {
+    "name": "Doubao Seedream 4.5",
+    "modelId": "doubao-seedream-4-5-251128",
+    "type": "image"
+  }
+]

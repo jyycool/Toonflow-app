@@ -1,0 +1,201 @@
+[
+  {
+    "name": "kling-video-o1 标准",
+    "modelId": "kling-video-o1:std",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "startEndRequired",
+      "[\"imageReference:7",
+      "videoReference:1"
+    ]
+  },
+  {
+    "name": "kling-video-o1 专家",
+    "modelId": "kling-video-o1:pro",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "startEndRequired",
+      "[\"imageReference:7",
+      "videoReference:1"
+    ]
+  },
+  {
+    "name": "kling-v3-omni 标准",
+    "modelId": "kling-v3-omni:std",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "startEndRequired",
+      "[\"imageReference:7",
+      "videoReference:1"
+    ]
+  },
+  {
+    "name": "kling-v3-omni 专家",
+    "modelId": "kling-v3-omni:pro",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "startEndRequired",
+      "[\"imageReference:7",
+      "videoReference:1"
+    ]
+  },
+  {
+    "name": "kling-v3 标准",
+    "modelId": "kling-v3:std",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "kling-v3 专家",
+    "modelId": "kling-v3:pro",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "kling-v2-6 标准",
+    "modelId": "kling-v2-6:std",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage"
+    ]
+  },
+  {
+    "name": "kling-v2-6 专家",
+    "modelId": "kling-v2-6:pro",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "kling-v2-5-turbo 标准",
+    "modelId": "kling-v2-5-turbo:std",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage"
+    ]
+  },
+  {
+    "name": "kling-v2-5-turbo 专家",
+    "modelId": "kling-v2-5-turbo:pro",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "kling-v2-1 标准",
+    "modelId": "kling-v2-1:std",
+    "type": "video",
+    "mode": [
+      "singleImage"
+    ]
+  },
+  {
+    "name": "kling-v2-1 专家",
+    "modelId": "kling-v2-1:pro",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "kling-v2-1 Master",
+    "modelId": "kling-v2-1-master:pro",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage"
+    ]
+  },
+  {
+    "name": "kling-v2 Master",
+    "modelId": "kling-v2-master:pro",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage"
+    ]
+  },
+  {
+    "name": "kling-v1-6 标准",
+    "modelId": "kling-v1-6:std",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "[\"imageReference:4"
+    ]
+  },
+  {
+    "name": "kling-v1-6 专家",
+    "modelId": "kling-v1-6:pro",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "endFrameOptional",
+      "[\"imageReference:4"
+    ]
+  },
+  {
+    "name": "kling-v1-5 标准",
+    "modelId": "kling-v1-5:std",
+    "type": "video",
+    "mode": [
+      "singleImage"
+    ]
+  },
+  {
+    "name": "kling-v1-5 专家",
+    "modelId": "kling-v1-5:pro",
+    "type": "video",
+    "mode": [
+      "singleImage",
+      "endFrameOptional"
+    ]
+  },
+  {
+    "name": "kling-v1 标准",
+    "modelId": "kling-v1:std",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "startEndRequired"
+    ]
+  },
+  {
+    "name": "kling-v1 专家",
+    "modelId": "kling-v1:pro",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "startEndRequired"
+    ]
+  }
+]

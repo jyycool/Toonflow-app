@@ -1,0 +1,114 @@
+[
+  {
+    "name": "DeepSeek V4 Pro",
+    "modelId": "deepseek-ai/deepseek-v4-pro",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "DeepSeek V4 Flash",
+    "modelId": "deepseek-ai/deepseek-v4-flash",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "Kimi K2.6",
+    "modelId": "moonshotai/kimi-k2.6",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "GLM 5.1",
+    "modelId": "zai-org/glm-5.1",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "MiniMax M2.7",
+    "modelId": "minimaxai/minimax-m2.7",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "GPT Image 2",
+    "modelId": "openai/gpt-image-2/text-to-image",
+    "type": "image"
+  },
+  {
+    "name": "Nano Banana Pro",
+    "modelId": "google/nano-banana-pro/text-to-image",
+    "type": "image"
+  },
+  {
+    "name": "Nano Banana 2",
+    "modelId": "google/nano-banana-2/text-to-image",
+    "type": "image"
+  },
+  {
+    "name": "Seedream v5",
+    "modelId": "bytedance/seedream-v5.0-lite/sequential",
+    "type": "image"
+  },
+  {
+    "name": "Qwen Image 2 Pro",
+    "modelId": "qwen/qwen-image-2.0-pro/text-to-image",
+    "type": "image"
+  },
+  {
+    "name": "Seedance 2.0 Audio-Visual",
+    "modelId": "bytedance/seedance-2.0/text-to-video",
+    "type": "video",
+    "mode": [
+      "text",
+      "startFrameOptional",
+      "[\"imageReference:9",
+      "videoReference:3",
+      "audioReference:3"
+    ]
+  },
+  {
+    "name": "Seedance 2.0 Reference-to-Video",
+    "modelId": "bytedance/seedance-2.0/reference-to-video",
+    "type": "video",
+    "mode": [
+      "singleImage"
+    ]
+  },
+  {
+    "name": "Seedance 2.0 Multi-Image-to-Video",
+    "modelId": "bytedance/seedance-2.0/image-to-video",
+    "type": "video",
+    "mode": [
+      "startFrameOptional",
+      "[\"imageReference:4"
+    ]
+  },
+  {
+    "name": "Seedance 2.0 Fast Audio-Visual",
+    "modelId": "bytedance/seedance-2.0-fast/text-to-video",
+    "type": "video",
+    "mode": [
+      "text",
+      "startFrameOptional",
+      "[\"imageReference:9",
+      "videoReference:3",
+      "audioReference:3"
+    ]
+  },
+  {
+    "name": "Seedance 2.0 Fast Reference-to-Video",
+    "modelId": "bytedance/seedance-2.0-fast/reference-to-video",
+    "type": "video",
+    "mode": [
+      "singleImage"
+    ]
+  },
+  {
+    "name": "Wan-2.7 Reference-to-video",
+    "modelId": "alibaba/wan-2.7/reference-to-video",
+    "type": "video",
+    "mode": [
+      "singleImage"
+    ]
+  }
+]

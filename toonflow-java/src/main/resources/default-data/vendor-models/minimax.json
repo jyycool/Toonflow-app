@@ -1,0 +1,82 @@
+[
+  {
+    "name": "MiniMax-M2.7 (推理版)",
+    "modelId": "MiniMax-M2.7",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "MiniMax-M2.7 极速版 (推理版)",
+    "modelId": "MiniMax-M2.7-highspeed",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "MiniMax-M2.5 (推理版)",
+    "modelId": "MiniMax-M2.5",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "MiniMax-M2.5 极速版 (推理版)",
+    "modelId": "MiniMax-M2.5-highspeed",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "MiniMax-M2.1 (编程版)",
+    "modelId": "MiniMax-M2.1",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "MiniMax-M2.1 极速版 (编程版)",
+    "modelId": "MiniMax-M2.1-highspeed",
+    "type": "text",
+    "think": true
+  },
+  {
+    "name": "MiniMax-M2 (Agent版)",
+    "modelId": "MiniMax-M2",
+    "type": "text",
+    "think": false
+  },
+  {
+    "name": "海螺图像V1",
+    "modelId": "image-01",
+    "type": "image"
+  },
+  {
+    "name": "海螺图像V1 Live版",
+    "modelId": "image-01-live",
+    "type": "image"
+  },
+  {
+    "name": "海螺2.3",
+    "modelId": "MiniMax-Hailuo-2.3",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage"
+    ]
+  },
+  {
+    "name": "海螺2.3极速版",
+    "modelId": "MiniMax-Hailuo-2.3-Fast",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage"
+    ]
+  },
+  {
+    "name": "海螺02",
+    "modelId": "MiniMax-Hailuo-02",
+    "type": "video",
+    "mode": [
+      "text",
+      "singleImage",
+      "startEndRequired"
+    ]
+  }
+]
