@@ -40,16 +40,18 @@ public class VendorTestController {
     /**
      * 文本模型测试
      */
-    @PostMapping("/textTest")
+    @PostMapping(“/textTest”)
     public R<Map<String, Object>> textTest(@RequestBody Map<String, String> body) {
-        String modelName = body.get("modelName"); // vendorId:modelId
+        String modelName = body.get(“modelName”); // vendorId:modelId
         try {
-            String reply = aiService.generateText(modelName, List.of(
-                    new AiService.ChatMessage("user", "你好，请回复“连接成功”")));
-            return R.ok(Map.of("success", true, "reply", reply));
+            var model = aiService.buildChatModel(modelName);
+            var messages = List.of(new org.springframework.ai.chat.messages.UserMessage(“你好，请回复”连接成功””));
+            var response = model.call(new org.springframework.ai.chat.prompt.Prompt(messages));
+            String reply = response.getResult().getOutput().getText();
+            return R.ok(Map.of(“success”, true, “reply”, reply));
         } catch (Exception e) {
-            log.warn("文本模型测试失败: {}", e.getMessage());
-            return R.ok(Map.of("success", false, "error", e.getMessage()));
+            log.warn(“文本模型测试失败: {}”, e.getMessage());
+            return R.ok(Map.of(“success”, false, “error”, e.getMessage()));
         }
     }
 
