@@ -29,6 +29,7 @@ public class DbInitConfig implements ApplicationRunner {
     private final OSettingMapper settingMapper;
     private final OAgentDeployMapper agentDeployMapper;
     private final OPromptMapper promptMapper;
+    private final OVendorConfigMapper vendorConfigMapper;
 
     @Value("${toonflow.data-dir}")
     private String dataDir;
@@ -400,36 +401,102 @@ public class DbInitConfig implements ApplicationRunner {
             settingMapper.insert(agentMode);
         }
 
-        // 初始化 Agent 部署配置
-        initAgentDeploy("scriptAgent", "剧本Agent", "text");
-        initAgentDeploy("productionAgent", "制作Agent", "text");
-        initAgentDeploy("universalAi", "通用AI", "text");
-        initAgentDeploy("scriptAgent:decisionAgent", "决策Agent", "text");
-        initAgentDeploy("scriptAgent:supervisionAgent", "监督Agent", "text");
-        initAgentDeploy("scriptAgent:storySkeletonAgent", "故事骨架Agent", "text");
-        initAgentDeploy("scriptAgent:adaptationStrategyAgent", "改编策略Agent", "text");
-        initAgentDeploy("scriptAgent:scriptAgent", "剧本撰写Agent", "text");
-        initAgentDeploy("productionAgent:decisionAgent", "制作决策Agent", "text");
-        initAgentDeploy("productionAgent:supervisionAgent", "制作监督Agent", "text");
-        initAgentDeploy("productionAgent:deriveAssetsAgent", "素材提取Agent", "text");
-        initAgentDeploy("productionAgent:generateAssetsAgent", "素材生成Agent", "text");
-        initAgentDeploy("productionAgent:directorPlanAgent", "导演规划Agent", "text");
-        initAgentDeploy("productionAgent:storyboardGenAgent", "分镜生成Agent", "text");
-        initAgentDeploy("productionAgent:storyboardPanelAgent", "分镜面板Agent", "text");
-        initAgentDeploy("productionAgent:storyboardTableAgent", "分镜表格Agent", "text");
+        // 初始化 Agent 部署配置（含完整 desc 与 temperature）
+        initAgentDeploy("scriptAgent", "剧本Agent", "用于读取原文生成故事骨架、改编策略，建议使用具备强大文本理解和生成能力的模型", null, null);
+        initAgentDeploy("productionAgent", "生产Agent", "对工作流进行调度和管理，建议使用具备较强的逻辑推理和任务管理能力的模型", null, null);
+        initAgentDeploy("universalAi", "通用AI", "用于小说事件提取、资产提示词生成、台词提取等边缘功能，建议使用具备较强文本处理能力的模型", null, null);
+        initAgentDeploy("ttsDubbing", "TTS配音", "根据剧本内容生成角色配音，支持多种声音风格和情绪", null, true);
+        initAgentDeploy("scriptAgent:decisionAgent", "剧本Agent:决策层", "决策层", 1.0, null);
+        initAgentDeploy("scriptAgent:supervisionAgent", "剧本Agent:监督层", "监督层", 1.0, null);
+        initAgentDeploy("scriptAgent:storySkeletonAgent", "剧本Agent:故事骨架", "故事骨架生成", 1.0, null);
+        initAgentDeploy("scriptAgent:adaptationStrategyAgent", "剧本Agent:改编策略", "改编策略生成", 1.0, null);
+        initAgentDeploy("scriptAgent:scriptAgent", "剧本Agent:剧本生成", "剧本生成", 1.0, null);
+        initAgentDeploy("productionAgent:decisionAgent", "生产Agent:决策层", "决策层", 1.0, null);
+        initAgentDeploy("productionAgent:supervisionAgent", "生产Agent:监督层", "监督层", 1.0, null);
+        initAgentDeploy("productionAgent:deriveAssetsAgent", "生产Agent:衍生资产", "衍生资产", 1.0, null);
+        initAgentDeploy("productionAgent:generateAssetsAgent", "生产Agent:生成资产", "生成资产", 1.0, null);
+        initAgentDeploy("productionAgent:directorPlanAgent", "生产Agent:导演规划", "导演规划", 1.0, null);
+        initAgentDeploy("productionAgent:storyboardGenAgent", "生产Agent:分镜生成", "分镜生成", 1.0, null);
+        initAgentDeploy("productionAgent:storyboardPanelAgent", "生产Agent:分镜面板", "分镜面板生成", 1.0, null);
+        initAgentDeploy("productionAgent:storyboardTableAgent", "生产Agent:分镜表格", "分镜表格生成", 1.0, null);
+
+        // 初始化供应商配置
+        for (String vid : new String[]{"toonflow","deepseek","atlascloud","volcengine","minimax","openai","klingai","vidu"}) {
+            initVendorConfig(vid);
+        }
+
+        // 初始化提示词
+        initPrompt("事件提取", "eventExtraction");
+        initPrompt("剧本资产提取", "scriptAssetExtraction");
+        initPrompt("视频提示词生成", "videoPromptGeneration");
+        initPrompt("音色绑定", "audioBindPrompt");
+
+        // 初始化记忆配置
+        initSetting("messagesPerSummary", "10");
+        initSetting("shortTermLimit", "5");
+        initSetting("summaryMaxLength", "500");
+        initSetting("summaryLimit", "10");
+        initSetting("ragLimit", "3");
+        initSetting("deepRetrieveSummaryLimit", "5");
+        initSetting("modelOnnxFile", "[\"all-MiniLM-L6-v2\", \"onnx\", \"model_fp16.onnx\"]");
+        initSetting("modelDtype", "fp16");
+        initSetting("switchAiDevTool", "0");
 
         log.info("默认数据初始化完成");
     }
 
-    private void initAgentDeploy(String key, String name, String type) {
+    private void initAgentDeploy(String key, String name, String desc, Double temperature, Boolean disabled) {
         if (agentDeployMapper.selectCount(
                 new LambdaQueryWrapper<OAgentDeploy>().eq(OAgentDeploy::getKey, key)) == 0) {
             OAgentDeploy deploy = new OAgentDeploy();
             deploy.setKey(key);
             deploy.setName(name);
-            deploy.setType(type);
-            deploy.setDisabled(false);
+            deploy.setDesc(desc);
+            deploy.setType("text");
+            deploy.setTemperature(temperature);
+            deploy.setDisabled(disabled != null && disabled);
             agentDeployMapper.insert(deploy);
+        }
+    }
+
+    private void initVendorConfig(String id) {
+        if (vendorConfigMapper.selectById(id) == null) {
+            OVendorConfig config = new OVendorConfig();
+            config.setId(id);
+            config.setEnable("toonflow".equals(id) ? 1 : 0);
+            config.setInputValues("{}");
+            config.setModels("[]");
+            vendorConfigMapper.insert(config);
+        }
+    }
+
+    private void initPrompt(String name, String type) {
+        if (promptMapper.selectCount(new LambdaQueryWrapper<OPrompt>().eq(OPrompt::getType, type)) == 0) {
+            String data = loadResource("default-data/prompts/" + type + ".txt");
+            OPrompt prompt = new OPrompt();
+            prompt.setName(name);
+            prompt.setType(type);
+            prompt.setData(data);
+            promptMapper.insert(prompt);
+        }
+    }
+
+    private void initSetting(String key, String value) {
+        if (settingMapper.selectById(key) == null) {
+            OSetting s = new OSetting();
+            s.setKey(key);
+            s.setValue(value);
+            settingMapper.insert(s);
+        }
+    }
+
+    private String loadResource(String path) {
+        try (InputStream is = getClass().getClassLoader().getResourceAsStream(path)) {
+            if (is == null) return "";
+            return new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            log.warn("加载资源文件失败: {}", path);
+            return "";
         }
     }
 }
