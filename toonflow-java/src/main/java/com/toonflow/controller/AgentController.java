@@ -17,7 +17,6 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/agents")
 @RequiredArgsConstructor
 public class AgentController {
 
@@ -27,7 +26,7 @@ public class AgentController {
     private final OAgentWorkDataMapper agentWorkDataMapper;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    @PostMapping("/getMemory")
+    @PostMapping("/api/agents/getMemory")
     public R<List<Memories>> getMemory(@RequestBody Map<String, String> body) {
         String isolationKey = body.get("isolationKey");
         return R.ok(memoriesMapper.selectList(
@@ -36,13 +35,13 @@ public class AgentController {
                         .orderByDesc(Memories::getCreateTime)));
     }
 
-    @PostMapping("/clearMemory")
+    @PostMapping("/api/agents/clearMemory")
     public R<Map<String, String>> clearMemory(@RequestBody Map<String, String> body) {
         memoryService.clear(body.get("isolationKey"));
         return R.ok(Map.of("message", "记忆已清除"));
     }
 
-    @PostMapping("/scriptAgent/getPlanData")
+    @PostMapping("/api/scriptAgent/getPlanData")
     public R<OAgentWorkData> getPlanData(@RequestBody Map<String, Object> body) {
         Integer projectId = (Integer) body.get("projectId");
         Integer episodesId = (Integer) body.get("episodesId");
@@ -54,7 +53,7 @@ public class AgentController {
                         .eq(OAgentWorkData::getKey, key)));
     }
 
-    @PostMapping("/scriptAgent/setPlanData")
+    @PostMapping("/api/scriptAgent/setPlanData")
     public R<Map<String, String>> setPlanData(@RequestBody OAgentWorkData data) {
         OAgentWorkData existing = agentWorkDataMapper.selectOne(
                 new LambdaQueryWrapper<OAgentWorkData>()
@@ -76,7 +75,7 @@ public class AgentController {
     /**
      * 更新工作区数据（剧本骨架/改编策略/剧本）
      */
-    @PostMapping("/scriptAgent/updateData")
+    @PostMapping("/api/scriptAgent/updateData")
     public R<Map<String, String>> updateData(@RequestBody Map<String, Object> body) {
         Integer id = (Integer) body.get("id");
         Object data = body.get("data");
@@ -95,7 +94,7 @@ public class AgentController {
     /**
      * 流式 AI 文本生成接口（SSE）
      */
-    @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @GetMapping(value = "/api/agents/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<String> streamGenerate(@RequestParam String agentType,
                                         @RequestParam String prompt) {
         List<AiService.ChatMessage> messages = List.of(
