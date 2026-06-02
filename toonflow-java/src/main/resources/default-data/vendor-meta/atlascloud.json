@@ -1,0 +1,30 @@
+{
+  "id": "atlascloud",
+  "version": "1.0",
+  "name": "AtlasCloud MASS",
+  "author": "AtlasCloud",
+  "description": "AtlasCloud 全模态平台接入 Toonflow。默认按官方文档填写文本、图片、视频与任务轮询路径。",
+  "inputs": [
+    {
+      "key": "apiKey",
+      "label": "API密钥",
+      "type": "password",
+      "placeholder": "AtlasCloud API Key",
+      "required": true
+    },
+    {
+      "key": "chatBaseUrl",
+      "label": "文本基地址",
+      "type": "url",
+      "placeholder": "https://api.atlascloud.ai/v1",
+      "required": true
+    },
+    {
+      "key": "mediaBaseUrl",
+      "label": "媒体基地址",
+      "type": "url",
+      "placeholder": "https://api.atlascloud.ai/api/v1",
+      "required": true
+    }
+  ]
+}

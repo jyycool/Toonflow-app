@@ -1,0 +1,22 @@
+{
+  "id": "vidu",
+  "name": "Vidu 开放平台",
+  "author": "搬砖的Coder",
+  "description": "Vidu 官方视频生成平台。 [前往平台](https://platform.vidu.cn/login/)",
+  "inputs": [
+    {
+      "key": "apiKey",
+      "label": "API密钥",
+      "type": "password",
+      "placeholder": "请到Vidu官方申请",
+      "required": true
+    },
+    {
+      "key": "baseUrl",
+      "label": "接口路径",
+      "type": "url",
+      "placeholder": "https://api.vidu.cn/ent/v2",
+      "required": true
+    }
+  ]
+}
