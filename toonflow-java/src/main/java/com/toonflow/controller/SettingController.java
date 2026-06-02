@@ -5,11 +5,14 @@ import com.toonflow.common.result.R;
 import com.toonflow.entity.*;
 import com.toonflow.mapper.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/setting")
 @RequiredArgsConstructor
@@ -20,6 +23,9 @@ public class SettingController {
     private final OAgentDeployMapper agentDeployMapper;
     private final OPromptMapper promptMapper;
     private final OUserMapper userMapper;
+
+    @Value("${toonflow.data-dir}")
+    private String dataDir;
 
     private final org.springframework.web.client.RestClient restClient =
             org.springframework.web.client.RestClient.create();
@@ -32,8 +38,36 @@ public class SettingController {
     }
 
     @PostMapping("/vendorConfig/addVendor")
-    public R<Map<String, String>> addVendor(@RequestBody OVendorConfig vendor) {
-        vendorConfigMapper.insert(vendor);
+    public R<Map<String, String>> addVendor(@RequestBody Map<String, Object> body) {
+        // 前端传 tsCode，用正则提取 vendor.id
+        String tsCode = (String) body.get("tsCode");
+        String id = (String) body.get("id");
+        if (id == null && tsCode != null) {
+            java.util.regex.Matcher m = java.util.regex.Pattern
+                    .compile("id\\s*:\\s*[\"']([^\"']+)[\"']").matcher(tsCode);
+            if (m.find()) id = m.group(1);
+        }
+        if (id == null) throw new com.toonflow.common.exception.BusinessException("无法解析供应商id");
+        if (id.contains(":")) throw new com.toonflow.common.exception.BusinessException("id不能包含英文冒号");
+        if (vendorConfigMapper.selectById(id) != null)
+            throw new com.toonflow.common.exception.BusinessException("供应商id已存在");
+        OVendorConfig config = new OVendorConfig();
+        config.setId(id);
+        config.setEnable("toonflow".equals(id) ? 1 : 0);
+        config.setInputValues("{}");
+        config.setModels("[]");
+        vendorConfigMapper.insert(config);
+        // 保存 tsCode 到 vendor 目录
+        if (tsCode != null) {
+            try {
+                java.nio.file.Path vendorDir = java.nio.file.Paths.get(dataDir, "vendor");
+                java.nio.file.Files.createDirectories(vendorDir);
+                java.nio.file.Files.writeString(vendorDir.resolve(id + ".ts"), tsCode,
+                        java.nio.charset.StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                log.warn("保存供应商代码失败: {}", e.getMessage());
+            }
+        }
         return R.ok(Map.of("message", "添加供应商成功"));
     }
 
@@ -109,7 +143,21 @@ public class SettingController {
             config = new OVendorConfig();
             config.setId(id);
             config.setEnable(0);
+            config.setInputValues("{}");
+            config.setModels("[]");
             vendorConfigMapper.insert(config);
+        }
+        // 保存 tsCode 到 vendor 目录
+        String tsCode = (String) body.get("tsCode");
+        if (tsCode != null) {
+            try {
+                java.nio.file.Path vendorDir = java.nio.file.Paths.get(dataDir, "vendor");
+                java.nio.file.Files.createDirectories(vendorDir);
+                java.nio.file.Files.writeString(vendorDir.resolve(id + ".ts"), tsCode,
+                        java.nio.charset.StandardCharsets.UTF_8);
+            } catch (Exception e) {
+                log.warn("保存供应商代码失败: {}", e.getMessage());
+            }
         }
         return R.ok(Map.of("message", "更新配置成功"));
     }
