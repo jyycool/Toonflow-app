@@ -30,10 +30,18 @@ public class VendorTestController {
     @PostMapping
     public R<Object> modelTest(@RequestBody Map<String, String> body) {
         String type = body.getOrDefault("type", "text");
+        // 原项目模型标识为 id:modelName（id=供应商ID, modelName=模型ID）
+        String id = body.get("id");
+        String modelName = body.get("modelName");
+        String fullModel = (id != null && !id.isEmpty())
+                ? id + ":" + modelName
+                : modelName;
+        Map<String, String> dispatch = new java.util.HashMap<>(body);
+        dispatch.put("modelName", fullModel);
         return switch (type) {
-            case "image" -> R.ok(imageTest(body).getData());
-            case "video" -> R.ok(videoTest(body).getData());
-            default -> R.ok(textTest(body).getData());
+            case "image" -> R.ok(imageTest(dispatch).getData());
+            case "video" -> R.ok(videoTest(dispatch).getData());
+            default -> R.ok(textTest(dispatch).getData());
         };
     }
 
