@@ -99,9 +99,9 @@ public class ProjectController {
         com.toonflow.entity.OAgentDeploy deploy = agentDeployMapper.selectOne(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.toonflow.entity.OAgentDeploy>()
                         .eq(com.toonflow.entity.OAgentDeploy::getKey, key).last("LIMIT 1"));
-        if (deploy == null || deploy.getModelName() == null) throw new BusinessException("未找到模型");
+        if (deploy == null || deploy.getModelName() == null) return R.ok(null);
         String[] parts = deploy.getModelName().split(":", 2);
-        if (parts.length < 2) throw new BusinessException("模型名称格式错误");
+        if (parts.length < 2) return R.ok(null);
         Map<String, Object> model = vendorService.getModelDetail(parts[0], parts[1]);
         return R.ok(model);
     }
