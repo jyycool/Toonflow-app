@@ -109,18 +109,25 @@ public class ProjectController {
     public R<Map<String, String>> visualManual(@RequestBody Map<String, String> body) {
         String type = body.get("type");
         Path base = Paths.get(dataDir, "skills", "art_skills", "chinese_sweet_romance");
-        String content = findAndRead(base, type + ".md");
-        return R.ok(Map.of("type", type, "content", content != null ? content : ""));
+        String content = "";
+        try (java.util.stream.Stream<Path> stream = Files.walk(base)) {
+            content = stream.filter(Files::isRegularFile)
+                    .filter(p -> p.getFileName().toString().equals(type + ".md"))
+                    .findFirst()
+                    .map(p -> { try { return Files.readString(p, java.nio.charset.StandardCharsets.UTF_8); } catch (Exception e) { return ""; } })
+                    .orElse("");
+        } catch (Exception ignored) {}
+        return R.ok(Map.of("type", type, "content", content));
     }
 
     @PostMapping("/getVisualManual")
-    public R<List<Map<String, String>>> getVisualManual() {
-        return R.ok(readManualMap(VISUAL_MAP));
+    public R<List<Map<String, Object>>> getVisualManual() {
+        return R.ok(readSkillDirs("art_skills", VISUAL_DATA_MAP));
     }
 
     @PostMapping("/queryDirectorManual")
-    public R<List<Map<String, String>>> queryDirectorManual() {
-        return R.ok(readManualMap(DIRECTOR_MAP));
+    public R<List<Map<String, Object>>> queryDirectorManual() {
+        return R.ok(readSkillDirs("story_skills", DIRECTOR_DATA_MAP));
     }
 
     @PostMapping("/addVisualManual")
@@ -153,48 +160,85 @@ public class ProjectController {
         return R.ok(Map.of("message", "导演手册已删除"));
     }
 
-    private static final List<String[]> VISUAL_MAP = List.of(
+    // [label, value, subDir]  subDir="" 表示在风格目录根下
+    private static final List<String[]> VISUAL_DATA_MAP = List.of(
             new String[]{"README", "README", ""},
             new String[]{"前缀", "prefix", ""},
             new String[]{"角色", "art_character", "art_prompt"},
+            new String[]{"角色衍生", "art_character_derivative", "art_prompt"},
             new String[]{"道具", "art_prop", "art_prompt"},
+            new String[]{"道具衍生", "art_prop_derivative", "art_prompt"},
             new String[]{"场景", "art_scene", "art_prompt"},
-            new String[]{"分镜", "director_storyboard", "driector_skills"});
+            new String[]{"场景衍生", "art_scene_derivative", "art_prompt"},
+            new String[]{"分镜", "director_storyboard", "driector_skills"},
+            new String[]{"分镜视频", "art_storyboard_video", "art_prompt"},
+            new String[]{"技法-导演规划", "director_planning_style", "driector_skills"},
+            new String[]{"技法-分镜表设计", "director_storyboard_table_style", "driector_skills"});
 
-    private static final List<String[]> DIRECTOR_MAP = List.of(
+    private static final List<String[]> DIRECTOR_DATA_MAP = List.of(
             new String[]{"README", "README", ""},
             new String[]{"导演规划", "director_planning_narrative", "driector_skills"},
             new String[]{"分镜表", "director_storyboard_table_narrative", "driector_skills"});
 
-    private List<Map<String, String>> readManualMap(List<String[]> map) {
-        Path base = Paths.get(dataDir, "skills", "art_skills", "chinese_sweet_romance");
-        List<Map<String, String>> result = new java.util.ArrayList<>();
-        for (String[] entry : map) {
-            String content = findAndRead(base, entry[1] + ".md");
-            Map<String, String> m = new java.util.HashMap<>();
-            m.put("label", entry[0]);
-            m.put("value", entry[1]);
-            m.put("data", content != null ? content : "");
-            result.add(m);
-        }
-        return result;
-    }
-
-    private String findAndRead(Path dir, String target) {
-        try {
-            if (!Files.exists(dir)) return null;
-            try (java.util.stream.Stream<Path> stream = Files.walk(dir)) {
-                return stream.filter(Files::isRegularFile)
-                        .filter(p -> p.getFileName().toString().equals(target))
-                        .findFirst()
-                        .map(p -> {
-                            try { return Files.readString(p, java.nio.charset.StandardCharsets.UTF_8); }
-                            catch (Exception e) { return ""; }
-                        }).orElse(null);
+    private List<Map<String, Object>> readSkillDirs(String skillsSubDir, List<String[]> dataMap) {
+        Path skillsRoot = Paths.get(dataDir, "skills", skillsSubDir);
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+        if (!Files.exists(skillsRoot)) return result;
+        try (java.util.stream.Stream<Path> stream = Files.list(skillsRoot)) {
+            List<Path> dirs = stream.filter(Files::isDirectory).sorted().toList();
+            for (Path styleDir : dirs) {
+                String dirName = styleDir.getFileName().toString();
+                // 读取 README 第一行作为 name
+                Path readmePath = styleDir.resolve("README.md");
+                String name = dirName;
+                if (Files.exists(readmePath)) {
+                    try {
+                        String first = Files.readString(readmePath, java.nio.charset.StandardCharsets.UTF_8)
+                                .lines().findFirst().orElse("").replace("--", "").trim();
+                        if (!first.isEmpty()) name = first;
+                    } catch (Exception ignored) {}
+                }
+                // 收集 images 目录下图片
+                Path imagesDir = styleDir.resolve("images");
+                List<String> images = new java.util.ArrayList<>();
+                if (Files.exists(imagesDir)) {
+                    try (java.util.stream.Stream<Path> imgStream = Files.list(imagesDir)) {
+                        imgStream.filter(p -> p.getFileName().toString().matches("(?i).*\\.(png|jpe?g|gif|webp|svg)"))
+                                .map(p -> "/" + skillsSubDir + "/" + dirName + "/images/" + p.getFileName())
+                                .forEach(images::add);
+                    } catch (Exception ignored) {}
+                }
+                // 读取各字段 md 内容
+                List<Map<String, String>> data = new java.util.ArrayList<>();
+                for (String[] entry : dataMap) {
+                    String label = entry[0], value = entry[1], subDir = entry[2];
+                    Path mdPath = subDir.isEmpty()
+                            ? styleDir.resolve(value + ".md")
+                            : styleDir.resolve(subDir).resolve(value + ".md");
+                    String content = "";
+                    if (Files.exists(mdPath)) {
+                        try { content = Files.readString(mdPath, java.nio.charset.StandardCharsets.UTF_8); }
+                        catch (Exception ignored) {}
+                    }
+                    Map<String, String> d = new java.util.HashMap<>();
+                    d.put("label", label);
+                    d.put("value", value);
+                    d.put("data", content);
+                    data.add(d);
+                }
+                Map<String, Object> item = new java.util.HashMap<>();
+                item.put("name", name);
+                item.put("image", images);
+                // getVisualManual 用 stylePath，queryDirectorManual 用 directorManual
+                item.put("stylePath", dirName);
+                item.put("directorManual", dirName);
+                item.put("data", data);
+                result.add(item);
             }
         } catch (Exception e) {
-            return null;
+            throw new BusinessException("读取手册失败: " + e.getMessage());
         }
+        return result;
     }
 
     @Data
