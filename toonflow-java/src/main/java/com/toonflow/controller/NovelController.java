@@ -64,7 +64,7 @@ public class NovelController {
      */
     @PostMapping("/getNovel")
     public R<Map<String, Object>> getNovel(@RequestBody Map<String, Object> body) {
-        Integer projectId = (Integer) body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         int page = body.get("page") != null ? ((Number) body.get("page")).intValue() : 1;
         int limit = body.get("limit") != null ? ((Number) body.get("limit")).intValue() : 20;
         String search = (String) body.get("search");
@@ -107,8 +107,9 @@ public class NovelController {
     @PostMapping("/getNovelEventState")
     public R<List<Map<String, Object>>> getNovelEventState(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<Integer> ids = (List<Integer>) body.get("ids");
-        if (ids == null || ids.isEmpty()) return R.ok(List.of());
+        List<Number> rawIds = (List<Number>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) return R.ok(List.of());
+        List<Integer> ids = rawIds.stream().map(Number::intValue).collect(Collectors.toList());
 
         List<ONovel> list = novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>()
@@ -134,7 +135,7 @@ public class NovelController {
      */
     @PostMapping("/getNovelIndex")
     public R<List<Map<String, Object>>> getNovelIndex(@RequestBody Map<String, Object> body) {
-        Integer projectId = (Integer) body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         List<ONovel> list = novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>()
                         .eq(ONovel::getProjectId, projectId)
@@ -158,7 +159,7 @@ public class NovelController {
      */
     @PostMapping("/updateNovel")
     public R<Map<String, String>> updateNovel(@RequestBody Map<String, Object> body) {
-        Integer id = (Integer) body.get("id");
+        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
         if (id == null) throw new BusinessException("id不能为空");
 
         ONovel novel = new ONovel();
@@ -237,7 +238,7 @@ public class NovelController {
      */
     @PostMapping("/event/getEvent")
     public R<Map<String, Object>> getEvent(@RequestBody Map<String, Object> body) {
-        Integer projectId = (Integer) body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
 
         // Get all novels for this project
         List<ONovel> novels = novelMapper.selectList(
