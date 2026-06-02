@@ -35,6 +35,9 @@ spring:
       chat:
         options:
           model: gpt-4o
+  jackson:
+    deserialization:
+      use-long-for-ints: true
 
 mybatis-plus:
   configuration:
@@ -50,11 +53,6 @@ toonflow:
   data-dir: ${user.home}/.toonflow
   jwt:
     expiration: 15552000  # 180 days in seconds
-
-spring:
-  jackson:
-    deserialization:
-      use-long-for-ints: true
 
 logging:
   level:
