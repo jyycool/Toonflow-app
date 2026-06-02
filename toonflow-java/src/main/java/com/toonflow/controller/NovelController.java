@@ -328,7 +328,7 @@ public class NovelController {
 
         @Data
         public static class NovelItem {
-            private Integer index;
+            private Long index;
             private String reel;
             private String chapter;
             private String chapterData;
