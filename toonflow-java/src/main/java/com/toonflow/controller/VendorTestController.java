@@ -45,7 +45,7 @@ public class VendorTestController {
         String modelName = body.get(“modelName”); // vendorId:modelId
         try {
             var model = aiService.buildChatModel(modelName);
-            var messages = List.of(new org.springframework.ai.chat.messages.UserMessage(“你好，请回复”连接成功””));
+            var messages = List.of(new org.springframework.ai.chat.messages.UserMessage(“你好，请回复“连接成功””));
             var response = model.call(new org.springframework.ai.chat.prompt.Prompt(messages));
             String reply = response.getResult().getOutput().getText();
             return R.ok(Map.of(“success”, true, “reply”, reply));
