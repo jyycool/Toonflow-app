@@ -75,7 +75,43 @@ public class DbInitConfig implements ApplicationRunner {
         }
     }
 
+    /** 检测并迁移旧 INTEGER 主键表到 TEXT 主键 */
+    private void migrateSchema() {
+        String[] tables = {
+            "o_novel","o_script","o_assets","o_storyboard","o_image","o_video",
+            "o_videoTrack","o_artStyle","o_agentDeploy","o_agentWorkData","o_prompt",
+            "o_modelPrompt","o_tasks","o_event","o_eventChapter","o_outline",
+            "o_outlineNovel","o_imageFlow","o_project"
+        };
+        for (String table : tables) {
+            try {
+                var rows = jdbcTemplate.queryForList("PRAGMA table_info(" + table + ")");
+                for (var row : rows) {
+                    if ("id".equals(row.get("name")) && "INTEGER".equalsIgnoreCase(String.valueOf(row.get("type")))) {
+                        jdbcTemplate.execute("DROP TABLE IF EXISTS " + table);
+                        log.info("已删除旧 INTEGER 主键表: {}，将重新建表", table);
+                        break;
+                    }
+                }
+            } catch (Exception e) {
+                log.debug("migrateSchema check {} skipped: {}", table, e.getMessage());
+            }
+        }
+        // 修复关联表 INTEGER 列
+        try {
+            var rows = jdbcTemplate.queryForList("PRAGMA table_info(o_assetsRole2Audio)");
+            for (var row : rows) {
+                if ("assetsRoleId".equals(row.get("name")) && "INTEGER".equalsIgnoreCase(String.valueOf(row.get("type")))) {
+                    jdbcTemplate.execute("DROP TABLE IF EXISTS o_assetsRole2Audio");
+                    log.info("已删除旧 INTEGER 列表: o_assetsRole2Audio");
+                    break;
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
     private void initTables() {
+        migrateSchema();
         // 用户表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_user (
@@ -334,8 +370,8 @@ public class DbInitConfig implements ApplicationRunner {
         // 角色-音频关联表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_assetsRole2Audio (
-                assetsRoleId INTEGER,
-                assetsAudioId INTEGER
+                assetsRoleId TEXT,
+                assetsAudioId TEXT
             )""");
         // 技能列表表
         jdbcTemplate.execute("""
