@@ -31,7 +31,7 @@ public class AssetsController {
     }
 
     @PostMapping("/getAssetsApi")
-    public R<List<OAssets>> getAssets(@RequestBody Map<String, Integer> body) {
+    public R<List<OAssets>> getAssets(@RequestBody Map<String, Object> body) {
         Integer projectId = body.get("projectId");
         Integer scriptId = body.get("scriptId");
         LambdaQueryWrapper<OAssets> wrapper = new LambdaQueryWrapper<OAssets>()
@@ -47,7 +47,7 @@ public class AssetsController {
     }
 
     @PostMapping("/delAssets")
-    public R<Map<String, String>> delAssets(@RequestBody Map<String, Integer> body) {
+    public R<Map<String, String>> delAssets(@RequestBody Map<String, Object> body) {
         Integer id = body.get("id");
         if (id == null) throw new BusinessException("id不能为空");
         assetsMapper.deleteById(id);
@@ -55,7 +55,7 @@ public class AssetsController {
     }
 
     @PostMapping("/batchDelete")
-    public R<Map<String, String>> batchDelete(@RequestBody Map<String, List<Integer>> body) {
+    public R<Map<String, String>> batchDelete(@RequestBody Map<String, Object> body) {
         List<Integer> ids = body.get("ids");
         if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
         assetsMapper.deleteBatchIds(ids);
@@ -63,7 +63,7 @@ public class AssetsController {
     }
 
     @PostMapping("/getImage")
-    public R<OImage> getImage(@RequestBody Map<String, Integer> body) {
+    public R<OImage> getImage(@RequestBody Map<String, Object> body) {
         return R.ok(imageMapper.selectById(body.get("id")));
     }
 
@@ -79,7 +79,7 @@ public class AssetsController {
     }
 
     @PostMapping("/pollingImageAssets")
-    public R<List<OImage>> pollingImageAssets(@RequestBody Map<String, List<Integer>> body) {
+    public R<List<OImage>> pollingImageAssets(@RequestBody Map<String, Object> body) {
         List<Integer> ids = body.get("ids");
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(imageMapper.selectList(
@@ -87,7 +87,7 @@ public class AssetsController {
     }
 
     @PostMapping("/pollingPromptAssets")
-    public R<List<OAssets>> pollingPromptAssets(@RequestBody Map<String, List<Integer>> body) {
+    public R<List<OAssets>> pollingPromptAssets(@RequestBody Map<String, Object> body) {
         List<Integer> ids = body.get("ids");
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(assetsMapper.selectList(
@@ -127,7 +127,7 @@ public class AssetsController {
      * 获取素材数据（type=clip，联查图片）
      */
     @PostMapping("/getMaterialData")
-    public R<List<OAssets>> getMaterialData(@RequestBody Map<String, Integer> body) {
+    public R<List<OAssets>> getMaterialData(@RequestBody Map<String, Object> body) {
         Integer projectId = body.get("projectId");
         return R.ok(assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>()
@@ -143,7 +143,7 @@ public class AssetsController {
     }
 
     @PostMapping("/delImage")
-    public R<Map<String, String>> delImage(@RequestBody Map<String, Integer> body) {
+    public R<Map<String, String>> delImage(@RequestBody Map<String, Object> body) {
         Integer id = body.get("id");
         if (id != null) imageMapper.deleteById(id);
         return R.ok(Map.of("message", "删除图片成功"));

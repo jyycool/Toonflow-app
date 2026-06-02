@@ -184,24 +184,26 @@ public class NovelController {
     }
 
     @PostMapping("/delNovel")
-    public R<Map<String, String>> delNovel(@RequestBody Map<String, Integer> body) {
-        Integer id = body.get("id");
+    public R<Map<String, String>> delNovel(@RequestBody Map<String, Object> body) {
+        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
         if (id == null) throw new BusinessException("id不能为空");
         novelMapper.deleteById(id);
         return R.ok(Map.of("message", "删除成功"));
     }
 
     @PostMapping("/batchDeleteNovel")
-    public R<Map<String, String>> batchDeleteNovel(@RequestBody Map<String, List<Integer>> body) {
-        List<Integer> ids = body.get("ids");
-        if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
+    public R<Map<String, String>> batchDeleteNovel(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Number> rawIds = (List<Number>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) throw new BusinessException("ids不能为空");
+        List<Integer> ids = rawIds.stream().map(Number::intValue).collect(Collectors.toList());
         novelMapper.deleteBatchIds(ids);
         return R.ok(Map.of("message", "批量删除成功"));
     }
 
     @PostMapping("/getNovelData")
-    public R<List<ONovel>> getNovelData(@RequestBody Map<String, Integer> body) {
-        Integer projectId = body.get("projectId");
+    public R<List<ONovel>> getNovelData(@RequestBody Map<String, Object> body) {
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         return R.ok(novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>().eq(ONovel::getProjectId, projectId)));
     }
@@ -298,7 +300,7 @@ public class NovelController {
     }
 
     @PostMapping("/event/deletEvent")
-    public R<Map<String, String>> deletEvent(@RequestBody Map<String, Integer> body) {
+    public R<Map<String, String>> deletEvent(@RequestBody Map<String, Object> body) {
         Integer id = body.get("id");
         if (id == null) throw new BusinessException("id不能为空");
         eventMapper.deleteById(id);
@@ -307,7 +309,7 @@ public class NovelController {
     }
 
     @PostMapping("/event/batchDeleteEvent")
-    public R<Map<String, String>> batchDeleteEvent(@RequestBody Map<String, List<Integer>> body) {
+    public R<Map<String, String>> batchDeleteEvent(@RequestBody Map<String, Object> body) {
         List<Integer> ids = body.get("ids");
         if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
         eventMapper.deleteBatchIds(ids);

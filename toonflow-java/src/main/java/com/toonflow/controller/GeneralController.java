@@ -25,7 +25,7 @@ public class GeneralController {
     private final OTasksMapper tasksMapper;
 
     @PostMapping("/general/generalStatistics")
-    public R<Map<String, Object>> generalStatistics(@RequestBody Map<String, Integer> body) {
+    public R<Map<String, Object>> generalStatistics(@RequestBody Map<String, Object> body) {
         Integer projectId = body.get("projectId");
         Map<String, Object> stats = new HashMap<>();
         stats.put("novelCount", novelMapper.selectCount(
@@ -88,7 +88,7 @@ public class GeneralController {
     }
 
     @PostMapping("/task/getTaskApi")
-    public R<Object> getTaskApi(@RequestBody Map<String, Integer> body) {
+    public R<Object> getTaskApi(@RequestBody Map<String, Object> body) {
         Integer projectId = body.get("projectId");
         return R.ok(tasksMapper.selectList(
                 new LambdaQueryWrapper<OTasks>().eq(OTasks::getProjectId, projectId)
@@ -108,7 +108,7 @@ public class GeneralController {
     }
 
     @PostMapping("/task/taskDetails")
-    public R<OTasks> taskDetails(@RequestBody Map<String, Integer> body) {
+    public R<OTasks> taskDetails(@RequestBody Map<String, Object> body) {
         return R.ok(tasksMapper.selectById(body.get("id")));
     }
 }

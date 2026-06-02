@@ -26,7 +26,7 @@ public class StoryboardController {
     }
 
     @PostMapping("/getStoryboardData")
-    public R<List<OStoryboard>> getStoryboardData(@RequestBody Map<String, Integer> body) {
+    public R<List<OStoryboard>> getStoryboardData(@RequestBody Map<String, Object> body) {
         Integer projectId = body.get("projectId");
         Integer scriptId = body.get("scriptId");
         LambdaQueryWrapper<OStoryboard> wrapper = new LambdaQueryWrapper<OStoryboard>()
@@ -43,7 +43,7 @@ public class StoryboardController {
     }
 
     @PostMapping("/batchDelete")
-    public R<Map<String, String>> batchDelete(@RequestBody Map<String, List<Integer>> body) {
+    public R<Map<String, String>> batchDelete(@RequestBody Map<String, Object> body) {
         List<Integer> ids = body.get("ids");
         if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
         storyboardMapper.deleteBatchIds(ids);
@@ -51,14 +51,14 @@ public class StoryboardController {
     }
 
     @PostMapping("/removeFrame")
-    public R<Map<String, String>> removeFrame(@RequestBody Map<String, Integer> body) {
+    public R<Map<String, String>> removeFrame(@RequestBody Map<String, Object> body) {
         Integer id = body.get("id");
         storyboardMapper.deleteById(id);
         return R.ok(Map.of("message", "删除成功"));
     }
 
     @PostMapping("/pollingImage")
-    public R<List<OStoryboard>> pollingImage(@RequestBody Map<String, List<Integer>> body) {
+    public R<List<OStoryboard>> pollingImage(@RequestBody Map<String, Object> body) {
         List<Integer> ids = body.get("ids");
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(storyboardMapper.selectList(
@@ -107,7 +107,7 @@ public class StoryboardController {
      * 预览分镜图片（返回有序的文件路径列表）
      */
     @PostMapping("/previewImage")
-    public R<List<Map<String, Object>>> previewImage(@RequestBody Map<String, List<Integer>> body) {
+    public R<List<Map<String, Object>>> previewImage(@RequestBody Map<String, Object> body) {
         List<Integer> storyboardIds = body.get("storyboardIds");
         if (storyboardIds == null || storyboardIds.isEmpty()) return R.ok(List.of());
 
@@ -128,7 +128,7 @@ public class StoryboardController {
     }
 
     @PostMapping("/downPreviewImage")
-    public R<List<Map<String, Object>>> downPreviewImage(@RequestBody Map<String, List<Integer>> body) {
+    public R<List<Map<String, Object>>> downPreviewImage(@RequestBody Map<String, Object> body) {
         return previewImage(body);
     }
 }

@@ -176,7 +176,7 @@ public class GenerateController {
      * 取消生成（将图片标记为生成失败）
      */
     @PostMapping("/assetsGenerate/cancelGenerate")
-    public R<Map<String, String>> cancelGenerate(@RequestBody Map<String, Integer> body) {
+    public R<Map<String, String>> cancelGenerate(@RequestBody Map<String, Object> body) {
         Integer id = body.get("id");
         com.toonflow.entity.OImage image = imageMapper.selectById(id);
         if (image != null) {

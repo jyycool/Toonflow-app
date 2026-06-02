@@ -113,7 +113,7 @@ public class CornerScapeController {
      * 轮询音频绑定状态（排除"生成中"）
      */
     @PostMapping("/pollingAudio")
-    public R<List<OAssets>> pollingAudio(@RequestBody Map<String, List<Integer>> body) {
+    public R<List<OAssets>> pollingAudio(@RequestBody Map<String, Object> body) {
         List<Integer> ids = body.get("ids");
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(assetsMapper.selectList(

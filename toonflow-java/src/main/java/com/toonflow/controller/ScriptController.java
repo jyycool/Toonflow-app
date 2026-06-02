@@ -53,7 +53,7 @@ public class ScriptController {
     }
 
     @PostMapping("/getScrptApi")
-    public R<List<OScript>> getScript(@RequestBody Map<String, Integer> body) {
+    public R<List<OScript>> getScript(@RequestBody Map<String, Object> body) {
         Integer projectId = body.get("projectId");
         List<OScript> list = scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>()
@@ -69,7 +69,7 @@ public class ScriptController {
     }
 
     @PostMapping("/delScript")
-    public R<Map<String, String>> delScript(@RequestBody Map<String, Integer> body) {
+    public R<Map<String, String>> delScript(@RequestBody Map<String, Object> body) {
         Integer id = body.get("id");
         if (id == null) throw new BusinessException("id不能为空");
         scriptMapper.deleteById(id);
@@ -81,7 +81,7 @@ public class ScriptController {
      * 导出剧本为 zip（每个剧本一个 .txt）
      */
     @PostMapping("/exportScript")
-    public void exportScript(@RequestBody Map<String, List<Integer>> body,
+    public void exportScript(@RequestBody Map<String, Object> body,
                              jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
         List<Integer> ids = body.get("id");
         if (ids == null || ids.isEmpty()) throw new BusinessException("id不能为空");
@@ -150,7 +150,7 @@ public class ScriptController {
      * 轮询剧本资产提取状态（排除"生成中"）
      */
     @PostMapping("/pollScriptAssets")
-    public R<List<OScript>> pollScriptAssets(@RequestBody Map<String, List<Integer>> body) {
+    public R<List<OScript>> pollScriptAssets(@RequestBody Map<String, Object> body) {
         List<Integer> ids = body.get("ids");
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(scriptMapper.selectList(
