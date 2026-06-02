@@ -10,28 +10,14 @@ import com.toonflow.mapper.OImageFlowMapper;
 import com.toonflow.mapper.OProjectMapper;
 import com.toonflow.mapper.OScriptAssetsMapper;
 import com.toonflow.mapper.OStoryboardMapper;
+import com.toonflow.websocket.SocketIoWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
+import org.springframework.web.socket.WebSocketSession;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-/**
- * 制作 Agent 编排服务
- * 对应原项目 src/agents/productionAgent/index.ts
- *
- * 决策 Agent 根据用户意图调度多个子 Agent：
- *  - deriveAssetsAgent     素材提取
- *  - generateAssetsAgent   素材生成
- *  - directorPlanAgent     导演规划
- *  - storyboardGenAgent    分镜生成
- *  - storyboardPanelAgent  分镜面板
- *  - storyboardTableAgent  分镜表格
- *  - supervisionAgent      监制审核
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -45,42 +31,17 @@ public class ProductionAgentService {
     private final OStoryboardMapper storyboardMapper;
     private final OImageFlowMapper imageFlowMapper;
     private final MediaGenerationService mediaGenerationService;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final SocketIoWebSocketHandler socketIoHandler;
 
     private static final String AGENT_TYPE = "productionAgent";
 
-    /**
-     * 子 Agent 定义
-     */
-    public enum SubAgent {
-        DERIVE_ASSETS("productionAgent:deriveAssetsAgent", "素材提取", "assistant:execution"),
-        GENERATE_ASSETS("productionAgent:generateAssetsAgent", "素材生成", "assistant:execution"),
-        DIRECTOR_PLAN("productionAgent:directorPlanAgent", "导演规划", "assistant:execution"),
-        STORYBOARD_GEN("productionAgent:storyboardGenAgent", "分镜生成", "assistant:execution"),
-        STORYBOARD_PANEL("productionAgent:storyboardPanelAgent", "分镜面板", "assistant:execution"),
-        STORYBOARD_TABLE("productionAgent:storyboardTableAgent", "分镜表格", "assistant:execution"),
-        SUPERVISION("productionAgent:supervisionAgent", "监制", "assistant:supervision");
-
-        public final String key;
-        public final String name;
-        public final String memoryKey;
-
-        SubAgent(String key, String name, String memoryKey) {
-            this.key = key;
-            this.name = name;
-            this.memoryKey = memoryKey;
-        }
+    public void runDecision(WebSocketSession session, String namespace, String sid,
+                            String isolationKey, String projectId, String userText) {
+        runDecision(session, namespace, sid, isolationKey, projectId, null, userText);
     }
 
-    /**
-     * 运行决策 Agent（主入口），流式推送
-     */
-    public void runDecision(String sessionId, String isolationKey, String projectId, String userText) {
-        runDecision(sessionId, isolationKey, projectId, null, userText);
-    }
-
-    public void runDecision(String sessionId, String isolationKey, String projectId,
-                            String scriptId, String userText) {
+    public void runDecision(WebSocketSession session, String namespace, String sid,
+                            String isolationKey, String projectId, String scriptId, String userText) {
         memoryService.add(AGENT_TYPE, isolationKey, "user", userText);
 
         MemoryService.MemoryContext mem = memoryService.get(isolationKey, userText);
@@ -98,52 +59,42 @@ public class ProductionAgentService {
                 storyboardMapper, imageFlowMapper, mediaGenerationService,
                 projectId, scriptId, imageModel);
 
-        streamAndSave(sessionId, isolationKey, AGENT_TYPE + ":decisionAgent",
-                messages, "assistant:decision", tools);
-    }
+        String messageId = UUID.randomUUID().toString();
+        String contentId = UUID.randomUUID().toString();
+        String datetime = new java.util.Date().toString();
 
-    /**
-     * 运行指定子 Agent
-     */
-    public void runSubAgent(String sessionId, String isolationKey, String projectId,
-                            SubAgent subAgent, String prompt) {
-        messagingTemplate.convertAndSend("/topic/agent/" + sessionId,
-                Map.of("type", "agentStart", "name", subAgent.name));
+        socketIoHandler.emit(session, namespace, "message", Map.of(
+                "id", messageId, "role", "assistant", "name", "视频策划",
+                "status", "pending", "datetime", datetime, "content", new ArrayList<>()));
 
-        List<AiService.ChatMessage> messages = List.of(
-                new AiService.ChatMessage("user", prompt));
+        socketIoHandler.emit(session, namespace, "content:add", Map.of(
+                "messageId", messageId,
+                "content", Map.of("type", "text", "id", contentId, "data", "", "status", "pending")));
 
-        streamAndSave(sessionId, isolationKey, subAgent.key, messages, subAgent.memoryKey);
-    }
-
-    private void streamAndSave(String sessionId, String isolationKey, String agentKey,
-                               List<AiService.ChatMessage> messages, String memoryKey) {
-        streamAndSave(sessionId, isolationKey, agentKey, messages, memoryKey, (Object[]) null);
-    }
-
-    private void streamAndSave(String sessionId, String isolationKey, String agentKey,
-                               List<AiService.ChatMessage> messages, String memoryKey,
-                               Object... tools) {
         StringBuilder full = new StringBuilder();
-        Flux<String> stream = (tools != null && tools.length > 0)
-                ? aiService.streamTextWithTools(agentKey, messages, tools)
-                : aiService.streamText(agentKey, messages);
-        stream.subscribe(
+        aiService.streamTextWithTools(AGENT_TYPE + ":decisionAgent", messages, tools)
+                .subscribe(
                         chunk -> {
                             full.append(chunk);
-                            messagingTemplate.convertAndSend("/topic/agent/" + sessionId,
-                                    Map.of("type", "chunk", "content", chunk));
+                            socketIoHandler.emit(session, namespace, "content:update", Map.of(
+                                    "messageId", messageId, "contentId", contentId,
+                                    "type", "text", "data", chunk,
+                                    "strategy", "append", "status", "streaming"));
                         },
                         error -> {
                             log.error("制作 Agent 执行失败", error);
-                            messagingTemplate.convertAndSend("/topic/agent/" + sessionId,
-                                    Map.of("type", "error", "message", error.getMessage()));
+                            socketIoHandler.emit(session, namespace, "message:update", Map.of(
+                                    "id", messageId, "status", "error",
+                                    "ext", Map.of("error", error.getMessage())));
                         },
                         () -> {
-                            memoryService.add(AGENT_TYPE, isolationKey, memoryKey,
+                            memoryService.add(AGENT_TYPE, isolationKey, "assistant:decision",
                                     stripXmlTags(full.toString()));
-                            messagingTemplate.convertAndSend("/topic/agent/" + sessionId,
-                                    Map.of("type", "done"));
+                            socketIoHandler.emit(session, namespace, "content:update", Map.of(
+                                    "messageId", messageId, "contentId", contentId,
+                                    "type", "text", "data", (Object) null, "status", "complete"));
+                            socketIoHandler.emit(session, namespace, "message:update", Map.of(
+                                    "id", messageId, "status", "complete"));
                         });
     }
 

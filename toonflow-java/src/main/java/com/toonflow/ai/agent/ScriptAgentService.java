@@ -9,20 +9,20 @@ import com.toonflow.entity.OProject;
 import com.toonflow.mapper.ONovelMapper;
 import com.toonflow.mapper.OProjectMapper;
 import com.toonflow.mapper.OScriptMapper;
+import com.toonflow.websocket.SocketIoWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.web.socket.WebSocketSession;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * 剧本 Agent 编排服务
  * 对应原项目 src/agents/scriptAgent/index.ts
  *
  * 决策 Agent 接收用户消息，结合项目信息和记忆，流式生成回复，
- * 并通过 WebSocket 推送到 /topic/agent/{sessionId}
+ * 并通过 Socket.IO 推送到客户端
  */
 @Slf4j
 @Service
@@ -34,14 +34,15 @@ public class ScriptAgentService {
     private final OProjectMapper projectMapper;
     private final ONovelMapper novelMapper;
     private final OScriptMapper scriptMapper;
-    private final SimpMessagingTemplate messagingTemplate;
+    private final SocketIoWebSocketHandler socketIoHandler;
 
     private static final String AGENT_TYPE = "scriptAgent";
 
     /**
      * 运行决策 Agent，流式推送结果
      */
-    public void runDecision(String sessionId, String isolationKey, String projectId, String userText) {
+    public void runDecision(WebSocketSession session, String namespace, String sid,
+                            String isolationKey, String projectId, String userText) {
         // 1. 记录用户消息
         memoryService.add(AGENT_TYPE, isolationKey, "user", userText);
 
@@ -63,6 +64,27 @@ public class ScriptAgentService {
 
         StringBuilder fullResponse = new StringBuilder();
 
+        // 创建消息 ID 和内容 ID
+        String messageId = UUID.randomUUID().toString();
+        String contentId = UUID.randomUUID().toString();
+        String datetime = new java.util.Date().toString();
+
+        // 发送 message (pending)
+        socketIoHandler.emit(session, namespace, "message", Map.of(
+                "id", messageId,
+                "role", "assistant",
+                "name", "scriptAgent",
+                "status", "pending",
+                "datetime", datetime,
+                "content", new ArrayList<>()
+        ));
+
+        // 发送 content:add
+        socketIoHandler.emit(session, namespace, "content:add", Map.of(
+                "messageId", messageId,
+                "content", Map.of("type", "text", "id", contentId, "data", "", "status", "pending")
+        ));
+
         // 绑定当前会话的工具集，供大模型自主调用
         ScriptAgentTools tools = new ScriptAgentTools(novelMapper, scriptMapper, projectId);
 
@@ -70,20 +92,35 @@ public class ScriptAgentService {
                 .subscribe(
                         chunk -> {
                             fullResponse.append(chunk);
-                            messagingTemplate.convertAndSend("/topic/agent/" + sessionId,
-                                    Map.of("type", "chunk", "content", chunk));
+                            socketIoHandler.emit(session, namespace, "content:update", Map.of(
+                                    "messageId", messageId,
+                                    "contentId", contentId,
+                                    "type", "text",
+                                    "data", chunk,
+                                    "strategy", "append",
+                                    "status", "streaming"
+                            ));
                         },
                         error -> {
                             log.error("剧本 Agent 执行失败", error);
-                            messagingTemplate.convertAndSend("/topic/agent/" + sessionId,
-                                    Map.of("type", "error", "message", error.getMessage()));
+                            socketIoHandler.emit(session, namespace, "error",
+                                    Map.of("message", error.getMessage()));
                         },
                         () -> {
                             // 保存助手回复到记忆
                             memoryService.add(AGENT_TYPE, isolationKey, "assistant:decision",
                                     stripXmlTags(fullResponse.toString()));
-                            messagingTemplate.convertAndSend("/topic/agent/" + sessionId,
-                                    Map.of("type", "done"));
+                            socketIoHandler.emit(session, namespace, "content:update", Map.of(
+                                    "messageId", messageId,
+                                    "contentId", contentId,
+                                    "type", "text",
+                                    "data", (Object) null,
+                                    "status", "complete"
+                            ));
+                            socketIoHandler.emit(session, namespace, "message:update", Map.of(
+                                    "id", messageId,
+                                    "status", "complete"
+                            ));
                         });
     }
 
@@ -103,7 +140,6 @@ public class ScriptAgentService {
     }
 
     private String loadDecisionPrompt() {
-        // 原项目从技能文件读取，此处提供默认提示词，可后续扩展为从文件/数据库加载
         return """
                 你是 Toonflow 的剧本改编决策 Agent。你的职责是协助用户将小说改编为短剧/漫剧剧本。
                 你需要理解用户意图，结合项目信息和历史记忆，给出专业的改编建议和决策。
