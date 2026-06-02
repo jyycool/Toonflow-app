@@ -7,6 +7,7 @@ import com.toonflow.ai.agent.ScriptAgentService;
 import com.toonflow.util.JwtUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.web.socket.CloseStatus;
@@ -24,9 +25,11 @@ public class SocketIoWebSocketHandler extends TextWebSocketHandler {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Lazy
     @Autowired
     private ScriptAgentService scriptAgentService;
 
+    @Lazy
     @Autowired
     private ProductionAgentService productionAgentService;
 
