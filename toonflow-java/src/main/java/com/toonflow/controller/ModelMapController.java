@@ -139,13 +139,14 @@ public class ModelMapController {
             Map<String, OModelPrompt> promptMap = new HashMap<>();
             promptList.forEach(p -> promptMap.put(p.getModel(), p));
 
+            // 与原项目一致：仅返回 video 模型，model 字段为模型自身的 modelId（不加供应商前缀）
             List<Map<String, Object>> models = vendorService.getModelList(vendor.getId()).stream()
-                    .filter(m -> "image".equals(m.get("type")) || "video".equals(m.get("type")))
+                    .filter(m -> "video".equals(m.get("type")))
                     .map(m -> {
                         Map<String, Object> item = new HashMap<>();
                         item.put("name", m.get("name"));
                         item.put("type", m.get("type"));
-                        String modelName = vendor.getId() + ":" + m.get("modelId");
+                        String modelName = String.valueOf(m.get("modelId"));
                         item.put("model", modelName);
                         OModelPrompt bound = promptMap.get(modelName);
                         if (bound != null) {
@@ -157,6 +158,7 @@ public class ModelMapController {
 
             Map<String, Object> vendorResult = new HashMap<>();
             vendorResult.put("id", vendor.getId());
+            vendorResult.put("name", vendorService.getVendorName(vendor.getId()));
             vendorResult.put("promptList", models);
             result.add(vendorResult);
         }

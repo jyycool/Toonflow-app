@@ -67,6 +67,21 @@ public class VendorService {
     }
 
     /**
+     * 获取供应商显示名称（读取 vendor-meta 资源，缺省回退为 id）
+     */
+    public String getVendorName(String vendorId) {
+        try (var in = getClass().getClassLoader()
+                .getResourceAsStream("default-data/vendor-meta/" + vendorId + ".json")) {
+            if (in != null) {
+                Map<String, Object> meta = objectMapper.readValue(in, new TypeReference<>() {});
+                Object name = meta.get("name");
+                if (name != null) return name.toString();
+            }
+        } catch (Exception ignored) {}
+        return vendorId;
+    }
+
+    /**
      * 解析模型详情（type=image/video/text/tts）
      */
     public Map<String, Object> getModelDetail(String vendorId, String modelId) {
