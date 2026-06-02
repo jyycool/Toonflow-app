@@ -42,7 +42,7 @@ public class NovelController {
         List<ONovel> inserted = new ArrayList<>();
         for (AddNovelRequest.NovelItem item : req.getData()) {
             ONovel novel = new ONovel();
-            novel.setProjectId(req.getProjectId());
+            novel.setProjectId(req.getProjectId().intValue());
             novel.setChapterIndex(++lastIndex);
             novel.setReel(item.getReel());
             novel.setChapter(item.getChapter());
@@ -53,7 +53,7 @@ public class NovelController {
             inserted.add(novel);
         }
         // 自动清洗生成事件（对应原项目 addNovel 触发 cleanNovel）
-        cleanNovelService.start(inserted, req.getProjectId());
+        cleanNovelService.start(inserted, req.getProjectId().intValue());
         return R.ok(Map.of("message", "新增原文成功"));
     }
 
@@ -225,7 +225,7 @@ public class NovelController {
             novelMapper.updateById(novel);
         }
         // 异步清洗生成事件
-        cleanNovelService.start(chapters, req.getProjectId());
+        cleanNovelService.start(chapters, req.getProjectId().intValue());
         return R.ok(Map.of("message", "已提交事件生成任务"));
     }
 
@@ -317,14 +317,14 @@ public class NovelController {
 
     @Data
     public static class GenerateEventsRequest {
-        @NotNull private Integer projectId;
-        @NotNull private List<Integer> novelIds;
+        @NotNull private Long projectId;
+        @NotNull private List<Long> novelIds;
         private Integer concurrentCount = 5;
     }
 
     @Data
     public static class AddNovelRequest {
-        @NotNull private Integer projectId;
+        @NotNull private Long projectId;
         @NotNull private List<NovelItem> data;
 
         @Data
