@@ -25,6 +25,19 @@ public class VendorTestController {
     private final MediaGenerationService mediaGenerationService;
 
     /**
+     * 聚合测试入口（type: text/image/video）
+     */
+    @PostMapping
+    public R<Object> modelTest(@RequestBody Map<String, String> body) {
+        String type = body.getOrDefault("type", "text");
+        return switch (type) {
+            case "image" -> R.ok(imageTest(body).getData());
+            case "video" -> R.ok(videoTest(body).getData());
+            default -> R.ok(textTest(body).getData());
+        };
+    }
+
+    /**
      * 文本模型测试
      */
     @PostMapping("/textTest")

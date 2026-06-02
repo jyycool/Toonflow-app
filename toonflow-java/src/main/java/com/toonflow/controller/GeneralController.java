@@ -71,6 +71,22 @@ public class GeneralController {
         return R.ok(Map.of("message", "数据已清除"));
     }
 
+    @PostMapping("/task/getProject")
+    public R<List<Map<String, Object>>> getTaskProject() {
+        List<OProject> projects = projectMapper.selectList(null);
+        List<Map<String, Object>> result = projects.stream()
+                .filter(p -> p.getName() != null && !p.getName().isEmpty())
+                .map(p -> {
+                    Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("id", p.getId());
+                    m.put("name", p.getName());
+                    return m;
+                })
+                .distinct()
+                .toList();
+        return R.ok(result);
+    }
+
     @PostMapping("/task/getTaskApi")
     public R<Object> getTaskApi(@RequestBody Map<String, Integer> body) {
         Integer projectId = body.get("projectId");
