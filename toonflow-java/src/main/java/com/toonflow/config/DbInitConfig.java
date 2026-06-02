@@ -460,14 +460,20 @@ public class DbInitConfig implements ApplicationRunner {
     }
 
     private void initVendorConfig(String id) {
-        if (vendorConfigMapper.selectById(id) == null) {
+        String defaultModels = loadResource("default-data/vendor-models/" + id + ".json");
+        if (defaultModels.isEmpty()) defaultModels = "[]";
+        OVendorConfig existing = vendorConfigMapper.selectById(id);
+        if (existing == null) {
             OVendorConfig config = new OVendorConfig();
             config.setId(id);
             config.setEnable("toonflow".equals(id) ? 1 : 0);
             config.setInputValues("{}");
-            String models = loadResource("default-data/vendor-models/" + id + ".json");
-            config.setModels(models.isEmpty() ? "[]" : models);
+            config.setModels(defaultModels);
             vendorConfigMapper.insert(config);
+        } else if ("[]".equals(existing.getModels()) || existing.getModels() == null) {
+            // 已有记录但 models 为空，补全默认模型列表
+            existing.setModels(defaultModels);
+            vendorConfigMapper.updateById(existing);
         }
     }
 
