@@ -158,8 +158,35 @@ public class SettingController {
     }
 
     @PostMapping("/vendorConfig/updateVendorInputs")
-    public R<Map<String, String>> updateVendorInputs(@RequestBody OVendorConfig vendor) {
-        vendorConfigMapper.updateById(vendor);
+    public R<Map<String, String>> updateVendorInputs(@RequestBody Map<String, Object> body) {
+        String id = (String) body.get("id");
+        OVendorConfig vendor = vendorConfigMapper.selectById(id);
+        if (vendor == null) {
+            vendor = new OVendorConfig();
+            vendor.setId(id);
+            vendor.setEnable(1);
+            vendor.setModels("[]");
+        }
+        Object inputValues = body.get("inputValues");
+        if (inputValues != null) {
+            try {
+                vendor.setInputValues(inputValues instanceof String
+                        ? (String) inputValues
+                        : objectMapper.writeValueAsString(inputValues));
+            } catch (Exception e) {
+                return R.fail("inputValues 序列化失败: " + e.getMessage());
+            }
+        }
+        if (body.get("enable") != null) {
+            Object en = body.get("enable");
+            vendor.setEnable(en instanceof Boolean ? ((Boolean) en ? 1 : 0)
+                    : Integer.parseInt(en.toString()));
+        }
+        if (vendorConfigMapper.selectById(id) == null) {
+            vendorConfigMapper.insert(vendor);
+        } else {
+            vendorConfigMapper.updateById(vendor);
+        }
         return R.ok(Map.of("message", "更新成功"));
     }
 
