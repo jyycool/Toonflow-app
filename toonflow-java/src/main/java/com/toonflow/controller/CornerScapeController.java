@@ -35,7 +35,7 @@ public class CornerScapeController {
      */
     @PostMapping("/getAllAssets")
     public R<List<Map<String, Object>>> getAllAssets(@RequestBody Map<String, Object> body) {
-        Integer projectId = (Integer) body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         @SuppressWarnings("unchecked")
         List<String> types = (List<String>) body.get("type");
 
@@ -91,9 +91,11 @@ public class CornerScapeController {
      */
     @PostMapping("/updateAssetsAudio")
     public R<Map<String, String>> updateAssetsAudio(@RequestBody Map<String, Object> body) {
-        Integer assetsId = (Integer) body.get("assetsId");
+        Integer assetsId = body.get("assetsId") != null ? ((Number) body.get("assetsId")).intValue() : null;
         @SuppressWarnings("unchecked")
-        List<Integer> audioIds = (List<Integer>) body.get("audioIds");
+        @SuppressWarnings("unchecked")
+        List<Number> raw_audioIds = (List<Number>) body.get("audioIds");
+        List<Integer> audioIds = raw_audioIds != null ? raw_audioIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (audioIds != null && audioIds.size() > 1) {
             throw new com.toonflow.common.exception.BusinessException("仅可绑定一个音色");
         }
@@ -126,9 +128,11 @@ public class CornerScapeController {
      */
     @PostMapping("/batchBindAudio")
     public R<Map<String, String>> batchBindAudio(@RequestBody Map<String, Object> body) {
-        Integer projectId = (Integer) body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         @SuppressWarnings("unchecked")
-        List<Integer> assetsIds = (List<Integer>) body.get("assetsIds");
+        @SuppressWarnings("unchecked")
+        List<Number> raw_assetsIds = (List<Number>) body.get("assetsIds");
+        List<Integer> assetsIds = raw_assetsIds != null ? raw_assetsIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
 
         List<OAssets> audioData = assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>()

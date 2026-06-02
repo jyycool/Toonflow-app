@@ -99,7 +99,7 @@ public class AssetsController {
      */
     @PostMapping("/addAudioAssets")
     public R<Map<String, String>> addAudioAssets(@RequestBody Map<String, Object> body) {
-        Integer projectId = (Integer) body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("assetsItem");
         if (items != null) {
@@ -137,7 +137,7 @@ public class AssetsController {
 
     @PostMapping("/batchGenerationData")
     public R<List<OAssets>> batchGenerationData(@RequestBody Map<String, Object> body) {
-        Integer projectId = (Integer) body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         return R.ok(assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>().eq(OAssets::getProjectId, projectId)));
     }

@@ -145,7 +145,7 @@ public class SettingController {
     @PostMapping("/vendorConfig/enableVendor")
     public R<Map<String, String>> enableVendor(@RequestBody Map<String, Object> body) {
         String id = (String) body.get("id");
-        Integer enable = (Integer) body.get("enable");
+        Integer enable = body.get("enable") != null ? ((Number) body.get("enable")).intValue() : null;
         OVendorConfig config = vendorConfigMapper.selectById(id);
         if (config != null) {
             config.setEnable(enable);

@@ -191,7 +191,7 @@ public class GenerateController {
      */
     @PostMapping("/assetsGenerate/polishAssetsPrompt")
     public R<Map<String, Object>> polishAssetsPrompt(@RequestBody Map<String, Object> body) {
-        Integer assetsId = (Integer) body.get("assetsId");
+        Integer assetsId = body.get("assetsId") != null ? ((Number) body.get("assetsId")).intValue() : null;
         String name = (String) body.getOrDefault("name", "");
         String describe = (String) body.getOrDefault("describe", "");
         try {
@@ -214,7 +214,9 @@ public class GenerateController {
     @PostMapping("/assetsGenerate/batchPolishAssetsPrompt")
     public R<Map<String, String>> batchPolishAssetsPrompt(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<Integer> assetIds = (List<Integer>) body.get("assetIds");
+        @SuppressWarnings("unchecked")
+        List<Number> raw_assetIds = (List<Number>) body.get("assetIds");
+        List<Integer> assetIds = raw_assetIds != null ? raw_assetIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (assetIds != null) {
             for (Integer id : assetIds) {
                 com.toonflow.entity.OAssets asset = assetsMapper.selectById(id);

@@ -78,8 +78,8 @@ public class StoryboardController {
     public R<Map<String, String>> batchAddStoryboardInfo(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> data = (List<Map<String, Object>>) body.get("data");
-        Integer scriptId = (Integer) body.get("scriptId");
-        Integer projectId = (Integer) body.get("projectId");
+        Integer scriptId = body.get("scriptId") != null ? ((Number) body.get("scriptId")).intValue() : null;
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         if (data == null || data.isEmpty()) throw new BusinessException("数据不能为空");
 
         int index = 0;

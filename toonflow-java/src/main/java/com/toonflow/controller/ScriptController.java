@@ -109,7 +109,9 @@ public class ScriptController {
     @PostMapping("/extractAssets")
     public R<Map<String, String>> extractAssets(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<Integer> scriptIds = (List<Integer>) body.get("scriptIds");
+        @SuppressWarnings("unchecked")
+        List<Number> raw_scriptIds = (List<Number>) body.get("scriptIds");
+        List<Integer> scriptIds = raw_scriptIds != null ? raw_scriptIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (scriptIds != null) {
             for (Integer id : scriptIds) {
                 OScript script = scriptMapper.selectById(id);

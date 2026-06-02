@@ -121,7 +121,9 @@ public class ProductionController {
     @PostMapping("/workbench/checkVideoStateList")
     public R<List<OVideo>> checkVideoStateList(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<Integer> videoIds = (List<Integer>) body.get("videoIds");
+        @SuppressWarnings("unchecked")
+        List<Number> raw_videoIds = (List<Number>) body.get("videoIds");
+        List<Integer> videoIds = raw_videoIds != null ? raw_videoIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (videoIds == null || videoIds.isEmpty()) return R.ok(List.of());
         return R.ok(videoMapper.selectList(
                 new LambdaQueryWrapper<OVideo>()
@@ -134,9 +136,9 @@ public class ProductionController {
      */
     @PostMapping("/workbench/generateVideo")
     public R<Map<String, Object>> generateVideo(@RequestBody Map<String, Object> body) {
-        Integer projectId = (Integer) body.get("projectId");
-        Integer scriptId = (Integer) body.get("scriptId");
-        Integer videoTrackId = (Integer) body.get("videoTrackId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        Integer scriptId = body.get("scriptId") != null ? ((Number) body.get("scriptId")).intValue() : null;
+        Integer videoTrackId = body.get("videoTrackId") != null ? ((Number) body.get("videoTrackId")).intValue() : null;
         String prompt = (String) body.getOrDefault("prompt", "");
 
         // 创建视频记录，状态为生成中
@@ -157,7 +159,7 @@ public class ProductionController {
     public R<Map<String, String>> batchGenerateVideo(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> tasks = (List<Map<String, Object>>) body.get("tasks");
-        Integer projectId = (Integer) body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         if (tasks != null) {
             for (Map<String, Object> t : tasks) {
                 OVideo video = new OVideo();
@@ -216,7 +218,7 @@ public class ProductionController {
      */
     @PostMapping("/editImage/generateFlowImage")
     public R<Map<String, Object>> generateFlowImage(@RequestBody Map<String, Object> body) {
-        Integer projectId = (Integer) body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         String prompt = (String) body.getOrDefault("prompt", "");
         String model = (String) body.get("model");
         String ratio = (String) body.getOrDefault("ratio", "1:1");
@@ -280,9 +282,9 @@ public class ProductionController {
      */
     @PostMapping("/assets/updateAssetsUrl")
     public R<Map<String, String>> updateAssetsUrl(@RequestBody Map<String, Object> body) {
-        Integer id = (Integer) body.get("id");
+        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
         String url = (String) body.get("url");
-        Integer flowId = (Integer) body.get("flowId");
+        Integer flowId = body.get("flowId") != null ? ((Number) body.get("flowId")).intValue() : null;
 
         com.toonflow.entity.OImage image = new com.toonflow.entity.OImage();
         image.setFilePath(url);
@@ -347,8 +349,10 @@ public class ProductionController {
     @PostMapping("/assets/batchGenerateAssetsImage")
     public R<Map<String, String>> batchGenerateAssetsImage(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<Integer> assetIds = (List<Integer>) body.get("assetIds");
-        Integer projectId = (Integer) body.get("projectId");
+        @SuppressWarnings("unchecked")
+        List<Number> raw_assetIds = (List<Number>) body.get("assetIds");
+        List<Integer> assetIds = raw_assetIds != null ? raw_assetIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         if (assetIds == null || assetIds.isEmpty()) {
             throw new com.toonflow.common.exception.BusinessException("assetIds不能为空");
         }
@@ -392,7 +396,7 @@ public class ProductionController {
      */
     @PostMapping("/workbench/generateVideoPrompt")
     public R<Map<String, String>> generateVideoPrompt(@RequestBody Map<String, Object> body) {
-        Integer trackId = (Integer) body.get("trackId");
+        Integer trackId = body.get("trackId") != null ? ((Number) body.get("trackId")).intValue() : null;
         String desc = (String) body.getOrDefault("desc", "");
         try {
             String prompt = aiService.generateText("universalAi", List.of(
@@ -415,7 +419,9 @@ public class ProductionController {
     @PostMapping("/workbench/batchGeneratePrompt")
     public R<Map<String, String>> batchGeneratePrompt(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<Integer> trackIds = (List<Integer>) body.get("trackIds");
+        @SuppressWarnings("unchecked")
+        List<Number> raw_trackIds = (List<Number>) body.get("trackIds");
+        List<Integer> trackIds = raw_trackIds != null ? raw_trackIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (trackIds != null) {
             for (Integer trackId : trackIds) {
                 OVideoTrack track = videoTrackMapper.selectById(trackId);
