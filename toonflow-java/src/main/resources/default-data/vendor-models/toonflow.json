@@ -1,120 +1,271 @@
 [
   {
     "name": "claude-sonnet-4-6",
-    "modelId": "claude-sonnet-4-6",
     "type": "text",
+    "modelId": "claude-sonnet-4-6",
     "think": false
   },
   {
     "name": "claude-opus-4-6",
-    "modelId": "claude-opus-4-6",
     "type": "text",
+    "modelId": "claude-opus-4-6",
     "think": false
   },
   {
     "name": "claude-sonnet-4-5-20250929",
-    "modelId": "claude-sonnet-4-5-20250929",
     "type": "text",
+    "modelId": "claude-sonnet-4-5-20250929",
     "think": false
   },
   {
     "name": "claude-opus-4-5-20251101",
-    "modelId": "claude-opus-4-5-20251101",
     "type": "text",
+    "modelId": "claude-opus-4-5-20251101",
     "think": false
   },
   {
     "name": "claude-haiku-4-5-20251001",
-    "modelId": "claude-haiku-4-5-20251001",
     "type": "text",
+    "modelId": "claude-haiku-4-5-20251001",
     "think": false
   },
   {
     "name": "gpt-5.4",
-    "modelId": "gpt-5.4",
     "type": "text",
+    "modelId": "gpt-5.4",
     "think": false
   },
   {
     "name": "gpt-5.2",
-    "modelId": "gpt-5.2",
     "type": "text",
+    "modelId": "gpt-5.2",
     "think": false
   },
   {
     "name": "MiniMax-M2.7",
-    "modelId": "MiniMax-M2.7",
     "type": "text",
+    "modelId": "MiniMax-M2.7",
     "think": true
   },
   {
     "name": "MiniMax-M2.5",
-    "modelId": "MiniMax-M2.5",
     "type": "text",
+    "modelId": "MiniMax-M2.5",
     "think": true
   },
   {
     "name": "Wan2.6 I2V 1080P (支持真人)",
-    "modelId": "Wan2.6-I2V-1080P",
     "type": "video",
+    "modelId": "Wan2.6-I2V-1080P",
     "mode": [
       "text",
       "startEndRequired"
-    ]
+    ],
+    "durationResolutionMap": [
+      {
+        "duration": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "resolution": [
+          "1080p"
+        ]
+      }
+    ],
+    "audio": true
   },
   {
     "name": "Wan2.6 I2V 720P (支持真人)",
-    "modelId": "Wan2.6-I2V-720P",
     "type": "video",
+    "modelId": "Wan2.6-I2V-720P",
     "mode": [
       "text",
       "startEndRequired"
-    ]
+    ],
+    "durationResolutionMap": [
+      {
+        "duration": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
+    ],
+    "audio": true
   },
   {
     "name": "Seedance 1.5 Pro",
-    "modelId": "doubao-seedance-1-5-pro-251215",
     "type": "video",
+    "modelId": "doubao-seedance-1-5-pro-251215",
     "mode": [
       "text",
       "endFrameOptional"
-    ]
+    ],
+    "durationResolutionMap": [
+      {
+        "duration": [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "resolution": [
+          "480p",
+          "720p",
+          "1080p"
+        ]
+      }
+    ],
+    "audio": true
   },
   {
     "name": "vidu2 turbo",
-    "modelId": "ViduQ2-turbo",
     "type": "video",
+    "modelId": "ViduQ2-turbo",
     "mode": [
       "singleImage",
       "startEndRequired"
-    ]
+    ],
+    "durationResolutionMap": [
+      {
+        "duration": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "resolution": [
+          "540p",
+          "720p",
+          "1080p"
+        ]
+      }
+    ],
+    "audio": false
   },
   {
     "name": "ViduQ3 pro",
-    "modelId": "ViduQ3-pro",
     "type": "video",
+    "modelId": "ViduQ3-pro",
     "mode": [
       "singleImage",
       "startEndRequired"
-    ]
+    ],
+    "durationResolutionMap": [
+      {
+        "duration": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "resolution": [
+          "540p",
+          "720p",
+          "1080p"
+        ]
+      }
+    ],
+    "audio": false
   },
   {
     "name": "ViduQ2 pro",
-    "modelId": "ViduQ2-pro",
     "type": "video",
+    "modelId": "ViduQ2-pro",
     "mode": [
       "singleImage",
       "startEndRequired"
-    ]
+    ],
+    "durationResolutionMap": [
+      {
+        "duration": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "resolution": [
+          "540p",
+          "720p",
+          "1080p"
+        ]
+      }
+    ],
+    "audio": false
   },
   {
     "name": "Doubao Seedream 5.0 Lite",
+    "type": "image",
     "modelId": "Doubao-Seedream-5.0-Lite",
-    "type": "image"
+    "mode": [
+      "text",
+      "singleImage",
+      "multiReference"
+    ]
   },
   {
     "name": "Doubao Seedream 4.5",
+    "type": "image",
     "modelId": "doubao-seedream-4-5-251128",
-    "type": "image"
+    "mode": [
+      "text",
+      "singleImage",
+      "multiReference"
+    ]
   }
 ]

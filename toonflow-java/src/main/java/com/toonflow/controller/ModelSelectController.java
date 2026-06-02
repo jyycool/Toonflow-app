@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.toonflow.common.result.R;
+import com.toonflow.ai.vendor.VendorService;
 import com.toonflow.entity.OVendorConfig;
 import com.toonflow.mapper.OVendorConfigMapper;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class ModelSelectController {
 
     private final OVendorConfigMapper vendorConfigMapper;
     private final ObjectMapper objectMapper;
+    private final VendorService vendorService;
 
     @PostMapping("/getModelList")
     public R<List<Map<String, Object>>> getModelList(
@@ -43,7 +45,7 @@ public class ModelSelectController {
                     item.put("label", model.get("name"));
                     item.put("value", model.get("modelId"));
                     item.put("type", modelType);
-                    item.put("name", vendor.getId());   // 供应商名称（原始用 vendorData.name，Java 暂用 id）
+                    item.put("name", vendorService.getVendorName(vendor.getId()));   // 供应商显示名（原始 vendorData.name）
                     result.add(item);
                 }
             } catch (Exception ignored) {}
@@ -53,9 +55,11 @@ public class ModelSelectController {
 
     @PostMapping("/getModelDetail")
     public R<Map<String, Object>> getModelDetail(@RequestBody Map<String, String> body) {
-        String modelName = body.get("modelName");
-        if (modelName == null) return R.ok(null);
-        String[] parts = modelName.split(":", 2);
+        // 原项目请求字段为 modelId，格式 vendorId:modelId（按第一个冒号切分）
+        String fullModelId = body.get("modelId");
+        if (fullModelId == null) fullModelId = body.get("modelName"); // 兼容旧字段
+        if (fullModelId == null) return R.ok(null);
+        String[] parts = fullModelId.split(":", 2);
         if (parts.length < 2) return R.ok(null);
         String vendorId = parts[0];
         String modelId = parts[1];

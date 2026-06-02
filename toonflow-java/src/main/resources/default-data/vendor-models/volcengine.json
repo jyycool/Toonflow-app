@@ -182,27 +182,50 @@
   {
     "name": "Seedream-5.0",
     "modelId": "doubao-seedream-5-0-260128",
-    "type": "image"
+    "type": "image",
+    "mode": [
+      "text",
+      "singleImage",
+      "multiReference"
+    ]
   },
   {
     "name": "Seedream-5.0-Lite",
     "modelId": "doubao-seedream-5-0-lite-260128",
-    "type": "image"
+    "type": "image",
+    "mode": [
+      "text",
+      "singleImage",
+      "multiReference"
+    ]
   },
   {
     "name": "Seedream-4.5",
     "modelId": "doubao-seedream-4-5-251128",
-    "type": "image"
+    "type": "image",
+    "mode": [
+      "text",
+      "singleImage",
+      "multiReference"
+    ]
   },
   {
     "name": "Seedream-4.0",
     "modelId": "doubao-seedream-4-0-250828",
-    "type": "image"
+    "type": "image",
+    "mode": [
+      "text",
+      "singleImage",
+      "multiReference"
+    ]
   },
   {
     "name": "Seedream-3.0-T2I",
     "modelId": "doubao-seedream-3-0-t2i-250415",
-    "type": "image"
+    "type": "image",
+    "mode": [
+      "text"
+    ]
   },
   {
     "name": "Seedance-2.0(音画同生)",
@@ -211,9 +234,34 @@
     "mode": [
       "text",
       "startFrameOptional",
-      "[\"imageReference:9",
-      "videoReference:3",
-      "audioReference:3"
+      [
+        "imageReference:9",
+        "videoReference:3",
+        "audioReference:3"
+      ]
+    ],
+    "audio": "optional",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "resolution": [
+          "480p",
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -223,9 +271,34 @@
     "mode": [
       "text",
       "startFrameOptional",
-      "[\"imageReference:9",
-      "videoReference:3",
-      "audioReference:3"
+      [
+        "imageReference:9",
+        "videoReference:3",
+        "audioReference:3"
+      ]
+    ],
+    "audio": "optional",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "resolution": [
+          "480p",
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -235,6 +308,27 @@
     "mode": [
       "text",
       "startFrameOptional"
+    ],
+    "audio": "optional",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "resolution": [
+          "480p",
+          "720p",
+          "1080p"
+        ]
+      }
     ]
   },
   {
@@ -244,6 +338,29 @@
     "mode": [
       "text",
       "startFrameOptional"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "resolution": [
+          "480p",
+          "720p",
+          "1080p"
+        ]
+      }
     ]
   },
   {
@@ -253,6 +370,29 @@
     "mode": [
       "text",
       "singleImage"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "resolution": [
+          "480p",
+          "720p",
+          "1080p"
+        ]
+      }
     ]
   },
   {
@@ -261,6 +401,29 @@
     "type": "video",
     "mode": [
       "text"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "resolution": [
+          "480p",
+          "720p",
+          "1080p"
+        ]
+      }
     ]
   },
   {
@@ -269,7 +432,32 @@
     "type": "video",
     "mode": [
       "startFrameOptional",
-      "[\"imageReference:4"
+      [
+        "imageReference:4"
+      ]
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12
+        ],
+        "resolution": [
+          "480p",
+          "720p",
+          "1080p"
+        ]
+      }
     ]
   }
 ]

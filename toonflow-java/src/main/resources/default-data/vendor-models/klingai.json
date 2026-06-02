@@ -7,8 +7,22 @@
       "text",
       "singleImage",
       "startEndRequired",
-      "[\"imageReference:7",
-      "videoReference:1"
+      [
+        "imageReference:7",
+        "videoReference:1"
+      ]
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -19,8 +33,22 @@
       "text",
       "singleImage",
       "startEndRequired",
-      "[\"imageReference:7",
-      "videoReference:1"
+      [
+        "imageReference:7",
+        "videoReference:1"
+      ]
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -31,8 +59,33 @@
       "text",
       "singleImage",
       "startEndRequired",
-      "[\"imageReference:7",
-      "videoReference:1"
+      [
+        "imageReference:7",
+        "videoReference:1"
+      ]
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -43,8 +96,33 @@
       "text",
       "singleImage",
       "startEndRequired",
-      "[\"imageReference:7",
-      "videoReference:1"
+      [
+        "imageReference:7",
+        "videoReference:1"
+      ]
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -55,6 +133,29 @@
       "text",
       "singleImage",
       "startEndRequired"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -65,6 +166,29 @@
       "text",
       "singleImage",
       "startEndRequired"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -74,6 +198,18 @@
     "mode": [
       "text",
       "singleImage"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -84,6 +220,18 @@
       "text",
       "singleImage",
       "startEndRequired"
+    ],
+    "audio": "optional",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "1080p"
+        ]
+      }
     ]
   },
   {
@@ -93,6 +241,18 @@
     "mode": [
       "text",
       "singleImage"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "1080p"
+        ]
+      }
     ]
   },
   {
@@ -103,6 +263,18 @@
       "text",
       "singleImage",
       "startEndRequired"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "1080p"
+        ]
+      }
     ]
   },
   {
@@ -111,6 +283,18 @@
     "type": "video",
     "mode": [
       "singleImage"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -120,6 +304,18 @@
     "mode": [
       "singleImage",
       "startEndRequired"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "1080p"
+        ]
+      }
     ]
   },
   {
@@ -129,6 +325,18 @@
     "mode": [
       "text",
       "singleImage"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "1080p"
+        ]
+      }
     ]
   },
   {
@@ -138,6 +346,18 @@
     "mode": [
       "text",
       "singleImage"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -147,7 +367,21 @@
     "mode": [
       "text",
       "singleImage",
-      "[\"imageReference:4"
+      [
+        "imageReference:4"
+      ]
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -158,7 +392,21 @@
       "text",
       "singleImage",
       "endFrameOptional",
-      "[\"imageReference:4"
+      [
+        "imageReference:4"
+      ]
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "1080p"
+        ]
+      }
     ]
   },
   {
@@ -167,6 +415,18 @@
     "type": "video",
     "mode": [
       "singleImage"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -176,6 +436,18 @@
     "mode": [
       "singleImage",
       "endFrameOptional"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "1080p"
+        ]
+      }
     ]
   },
   {
@@ -186,6 +458,18 @@
       "text",
       "singleImage",
       "startEndRequired"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   },
   {
@@ -196,6 +480,18 @@
       "text",
       "singleImage",
       "startEndRequired"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5,
+          10
+        ],
+        "resolution": [
+          "720p"
+        ]
+      }
     ]
   }
 ]

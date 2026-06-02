@@ -44,12 +44,21 @@
   {
     "name": "海螺图像V1",
     "modelId": "image-01",
-    "type": "image"
+    "type": "image",
+    "mode": [
+      "text",
+      "singleImage"
+    ]
   },
   {
     "name": "海螺图像V1 Live版",
     "modelId": "image-01-live",
-    "type": "image"
+    "type": "image",
+    "mode": [
+      "text",
+      "singleImage"
+    ],
+    "associationSkills": "支持自定义画风"
   },
   {
     "name": "海螺2.3",
@@ -58,6 +67,26 @@
     "mode": [
       "text",
       "singleImage"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          6
+        ],
+        "resolution": [
+          "768P",
+          "1080P"
+        ]
+      },
+      {
+        "duration": [
+          10
+        ],
+        "resolution": [
+          "768P"
+        ]
+      }
     ]
   },
   {
@@ -67,6 +96,26 @@
     "mode": [
       "text",
       "singleImage"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          6
+        ],
+        "resolution": [
+          "768P",
+          "1080P"
+        ]
+      },
+      {
+        "duration": [
+          10
+        ],
+        "resolution": [
+          "768P"
+        ]
+      }
     ]
   },
   {
@@ -77,6 +126,28 @@
       "text",
       "singleImage",
       "startEndRequired"
+    ],
+    "audio": false,
+    "durationResolutionMap": [
+      {
+        "duration": [
+          6
+        ],
+        "resolution": [
+          "512P",
+          "768P",
+          "1080P"
+        ]
+      },
+      {
+        "duration": [
+          10
+        ],
+        "resolution": [
+          "512P",
+          "768P"
+        ]
+      }
     ]
   }
 ]

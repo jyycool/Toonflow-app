@@ -1,95 +1,271 @@
 [
   {
     "name": "ViduQ3 turbo",
-    "modelId": "ViduQ3-turbo",
     "type": "video",
+    "modelId": "ViduQ3-turbo",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "resolution": [
+          "540p",
+          "720p",
+          "1080p"
+        ]
+      }
+    ],
     "mode": [
       "singleImage",
       "startEndRequired",
       "text"
-    ]
+    ],
+    "audio": true
   },
   {
     "name": "ViduQ3 pro",
-    "modelId": "ViduQ3-pro",
     "type": "video",
+    "modelId": "ViduQ3-pro",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16
+        ],
+        "resolution": [
+          "540p",
+          "720p",
+          "1080p"
+        ]
+      }
+    ],
     "mode": [
       "singleImage",
       "startEndRequired",
       "text"
-    ]
+    ],
+    "audio": true
   },
   {
     "name": "ViduQ2 pro fast",
-    "modelId": "ViduQ2-pro-fast",
     "type": "video",
+    "modelId": "ViduQ2-pro-fast",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "resolution": [
+          "720p",
+          "1080p"
+        ]
+      }
+    ],
     "mode": [
       "singleImage",
       "startEndRequired"
-    ]
+    ],
+    "audio": true
   },
   {
     "name": "viduQ2 turbo",
-    "modelId": "ViduQ2-turbo",
     "type": "video",
+    "modelId": "ViduQ2-turbo",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "resolution": [
+          "540p",
+          "720p",
+          "1080p"
+        ]
+      }
+    ],
     "mode": [
       "singleImage",
       "startEndRequired"
-    ]
+    ],
+    "audio": true
   },
   {
     "name": "ViduQ2 pro",
-    "modelId": "ViduQ2-pro",
     "type": "video",
+    "modelId": "ViduQ2-pro",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10
+        ],
+        "resolution": [
+          "540p",
+          "720p",
+          "1080p"
+        ]
+      }
+    ],
     "mode": [
       "singleImage",
       "startEndRequired"
-    ]
+    ],
+    "audio": true
   },
   {
     "name": "ViduQ2",
-    "modelId": "ViduQ2",
     "type": "video",
+    "modelId": "ViduQ2",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5
+        ],
+        "resolution": [
+          "1080p"
+        ]
+      }
+    ],
     "mode": [
       "text"
-    ]
+    ],
+    "audio": true
   },
   {
     "name": "ViduQ1",
-    "modelId": "ViduQ1",
     "type": "video",
+    "modelId": "ViduQ1",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5
+        ],
+        "resolution": [
+          "1080p"
+        ]
+      }
+    ],
     "mode": [
       "singleImage",
       "startEndRequired",
       "text"
-    ]
+    ],
+    "audio": true
   },
   {
     "name": "ViduQ1 classic",
-    "modelId": "viduQ1-classic",
     "type": "video",
+    "modelId": "viduQ1-classic",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          5
+        ],
+        "resolution": [
+          "1080p"
+        ]
+      }
+    ],
     "mode": [
       "singleImage",
       "startEndRequired"
-    ]
+    ],
+    "audio": true
   },
   {
     "name": "Vidu2.0",
-    "modelId": "vidu2.0",
     "type": "video",
+    "modelId": "vidu2.0",
+    "durationResolutionMap": [
+      {
+        "duration": [
+          4,
+          8
+        ],
+        "resolution": [
+          "360p",
+          "720p",
+          "1080p"
+        ]
+      }
+    ],
     "mode": [
       "singleImage",
       "startEndRequired"
-    ]
+    ],
+    "audio": true
   },
   {
     "name": "viduq1 for image",
+    "type": "image",
     "modelId": "viduq1",
-    "type": "image"
+    "mode": [
+      "text"
+    ]
   },
   {
     "name": "viduq2 for image",
+    "type": "image",
     "modelId": "viduq2",
-    "type": "image"
+    "mode": [
+      "text",
+      "singleImage",
+      "multiReference"
+    ]
   }
 ]

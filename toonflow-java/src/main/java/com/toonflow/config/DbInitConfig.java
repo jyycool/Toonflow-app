@@ -470,8 +470,10 @@ public class DbInitConfig implements ApplicationRunner {
             config.setInputValues("{}");
             config.setModels(defaultModels);
             vendorConfigMapper.insert(config);
-        } else if ("[]".equals(existing.getModels()) || existing.getModels() == null) {
-            // 已有记录但 models 为空，补全默认模型列表
+        } else if (existing.getModels() == null || "[]".equals(existing.getModels())
+                || !defaultModels.equals(existing.getModels())) {
+            // 已有记录但 models 为空或与内置默认不一致时，刷新为内置默认模型列表
+            // （保留用户的 enable / inputValues；模型定义以内置资源为准，含 durationResolutionMap 等完整字段）
             existing.setModels(defaultModels);
             vendorConfigMapper.updateById(existing);
         }

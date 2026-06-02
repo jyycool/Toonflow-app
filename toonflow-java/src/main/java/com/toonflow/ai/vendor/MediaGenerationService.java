@@ -69,6 +69,11 @@ public class MediaGenerationService {
      * @return 生成视频的相对 URL（落盘后）
      */
     public String generateVideo(String vendorModel, String prompt, String imageUrl, String aspectRatio) {
+        return generateVideo(vendorModel, prompt, imageUrl, aspectRatio, null, null);
+    }
+
+    public String generateVideo(String vendorModel, String prompt, String imageUrl, String aspectRatio,
+                                Integer duration, String resolution) {
         String[] parts = vendorModel.split(":", 2);
         String vendorId = parts[0];
         String modelId = parts.length > 1 ? parts[1] : "";
@@ -78,6 +83,8 @@ public class MediaGenerationService {
         config.setPrompt(prompt);
         config.setModelId(modelId);
         config.setAspectRatio(aspectRatio != null ? aspectRatio : "16:9");
+        if (duration != null) config.setDuration(duration);
+        if (resolution != null) config.setResolution(resolution);
         if (imageUrl != null) config.setReferenceList(List.of(imageUrl));
 
         try {

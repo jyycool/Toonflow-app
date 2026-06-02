@@ -2,6 +2,7 @@ package com.toonflow.controller;
 
 import com.toonflow.ai.AiService;
 import com.toonflow.ai.vendor.MediaGenerationService;
+import com.toonflow.ai.vendor.VendorService;
 import com.toonflow.common.result.R;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +24,7 @@ public class VendorTestController {
 
     private final AiService aiService;
     private final MediaGenerationService mediaGenerationService;
+    private final VendorService vendorService;
 
     /**
      * 聚合测试入口（type: text/image/video）
@@ -84,11 +86,30 @@ public class VendorTestController {
      */
     @PostMapping("/videoTest")
     public R<Map<String, Object>> videoTest(@RequestBody Map<String, String> body) {
-        String modelName = body.get("modelName");
+        String modelName = body.get("modelName"); // vendorId:modelId
         try {
-            String taskId = mediaGenerationService.submitVideoTask(modelName,
-                    "a cat walking, test video", null);
-            return R.ok(Map.of("success", true, "taskId", taskId != null ? taskId : ""));
+            // 从模型的 durationResolutionMap 取首个时长/分辨率（与原项目 modelTest 一致）
+            Integer duration = null;
+            String resolution = null;
+            String[] parts = modelName.split(":", 2);
+            if (parts.length == 2) {
+                try {
+                    Map<String, Object> detail = vendorService.getModelDetail(parts[0], parts[1]);
+                    Object drm = detail.get("durationResolutionMap");
+                    if (drm instanceof List<?> drmList && !drmList.isEmpty()
+                            && drmList.get(0) instanceof Map<?, ?> first) {
+                        Object durList = first.get("duration");
+                        Object resList = first.get("resolution");
+                        if (durList instanceof List<?> dl && !dl.isEmpty())
+                            duration = ((Number) dl.get(0)).intValue();
+                        if (resList instanceof List<?> rl && !rl.isEmpty())
+                            resolution = String.valueOf(rl.get(0));
+                    }
+                } catch (Exception ignored) {}
+            }
+            String url = mediaGenerationService.generateVideo(modelName,
+                    "a cat walking, test video", null, "16:9", duration, resolution);
+            return R.ok(Map.of("success", true, "url", url != null ? url : ""));
         } catch (Exception e) {
             log.warn("视频模型测试失败: {}", e.getMessage());
             return R.ok(Map.of("success", false, "error", e.getMessage()));
