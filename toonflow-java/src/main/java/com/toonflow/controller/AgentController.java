@@ -233,26 +233,17 @@ public class AgentController {
             agentWorkDataMapper.updateById(existing);
         }
 
-        // Update o_script entries by name
+        // Update o_script entries by id
         if (scriptItems != null) {
-            Integer pid = toInteger(projectId);
             for (Map<String, Object> s : scriptItems) {
-                String name = (String) s.get("name");
+                Integer scriptId = toInteger(s.get("id"));
                 String content = (String) s.get("content");
-                OScript scriptRow = scriptMapper.selectOne(
-                        new LambdaQueryWrapper<OScript>()
-                                .eq(OScript::getProjectId, pid)
-                                .eq(OScript::getName, name));
-                if (scriptRow != null) {
-                    scriptRow.setContent(content);
-                    scriptMapper.updateById(scriptRow);
-                } else {
-                    OScript newScript = new OScript();
-                    newScript.setProjectId(pid);
-                    newScript.setName(name);
-                    newScript.setContent(content);
-                    newScript.setCreateTime(System.currentTimeMillis());
-                    scriptMapper.insert(newScript);
+                if (scriptId != null) {
+                    OScript scriptRow = scriptMapper.selectById(scriptId);
+                    if (scriptRow != null) {
+                        scriptRow.setContent(content);
+                        scriptMapper.updateById(scriptRow);
+                    }
                 }
             }
         }

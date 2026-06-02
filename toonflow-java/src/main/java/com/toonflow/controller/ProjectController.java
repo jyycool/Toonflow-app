@@ -78,6 +78,7 @@ public class ProjectController {
         if (req.getVideoModel() != null) project.setVideoModel(req.getVideoModel());
         if (req.getImageQuality() != null) project.setImageQuality(req.getImageQuality());
         if (req.getMode() != null) project.setMode(req.getMode());
+        if (req.getProjectType() != null) project.setProjectType(req.getProjectType());
         projectMapper.updateById(project);
         return R.ok(Map.of("message", "编辑项目成功"));
     }
@@ -343,7 +344,7 @@ public class ProjectController {
                 Path fileDir = (subDir == null || subDir.isEmpty()) ? mainPath : mainPath.resolve(subDir);
                 Path filePath = fileDir.resolve(value + ".md");
                 // For README prepend name (matches original editVisualManual/editDirectorlManual behavior)
-                String fileContent = "README".equals(value) ? name + "\n" + content : content;
+                String fileContent = (editMode && "README".equals(value)) ? name + "\n" + content : content;
                 try {
                     Files.createDirectories(fileDir);
                     Files.writeString(filePath, fileContent, StandardCharsets.UTF_8);
@@ -448,5 +449,6 @@ public class ProjectController {
         private String videoModel;
         private String imageQuality;
         private String mode;
+        private String projectType;
     }
 }

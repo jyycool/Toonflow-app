@@ -195,23 +195,71 @@ public class SettingController {
 
     @PostMapping("/vendorConfig/addVendorModel")
     public R<Map<String, String>> addVendorModel(@RequestBody Map<String, Object> body) {
-        String vendorId = (String) body.get("vendorId");
-        OVendorConfig config = vendorConfigMapper.selectById(vendorId);
-        if (config != null) {
-            // 更新 models JSON
-            config.setModels(body.get("models").toString());
-            vendorConfigMapper.updateById(config);
+        String id = (String) body.get("id");
+        Object model = body.get("model");
+        OVendorConfig config = vendorConfigMapper.selectById(id);
+        if (config != null && model != null) {
+            try {
+                List<Object> existingModels = objectMapper.readValue(
+                        config.getModels() != null ? config.getModels() : "[]",
+                        new TypeReference<List<Object>>() {});
+                existingModels.add(model);
+                config.setModels(objectMapper.writeValueAsString(existingModels));
+                vendorConfigMapper.updateById(config);
+            } catch (Exception e) {
+                return R.fail("更新模型失败: " + e.getMessage());
+            }
         }
         return R.ok(Map.of("message", "添加模型成功"));
     }
 
     @PostMapping("/vendorConfig/delVendorModel")
     public R<Map<String, String>> delVendorModel(@RequestBody Map<String, Object> body) {
+        String id = (String) body.get("id");
+        String modelName = (String) body.get("modelName");
+        OVendorConfig config = vendorConfigMapper.selectById(id);
+        if (config != null && modelName != null) {
+            try {
+                List<Map<String, Object>> existingModels = objectMapper.readValue(
+                        config.getModels() != null ? config.getModels() : "[]",
+                        new TypeReference<List<Map<String, Object>>>() {});
+                existingModels.removeIf(m -> modelName.equals(m.get("modelId")) || modelName.equals(m.get("modelName")));
+                config.setModels(objectMapper.writeValueAsString(existingModels));
+                vendorConfigMapper.updateById(config);
+            } catch (Exception e) {
+                return R.fail("删除模型失败: " + e.getMessage());
+            }
+        }
         return R.ok(Map.of("message", "删除模型成功"));
     }
 
     @PostMapping("/vendorConfig/upVendorModel")
     public R<Map<String, String>> upVendorModel(@RequestBody Map<String, Object> body) {
+        String id = (String) body.get("id");
+        String modelName = (String) body.get("modelName");
+        Object model = body.get("model");
+        OVendorConfig config = vendorConfigMapper.selectById(id);
+        if (config != null && modelName != null && model != null) {
+            try {
+                List<Object> existingModels = objectMapper.readValue(
+                        config.getModels() != null ? config.getModels() : "[]",
+                        new TypeReference<List<Object>>() {});
+                boolean found = false;
+                for (int i = 0; i < existingModels.size(); i++) {
+                    Map<?, ?> m = (Map<?, ?>) existingModels.get(i);
+                    if (modelName.equals(m.get("modelName")) || modelName.equals(m.get("modelId"))) {
+                        existingModels.set(i, model);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) existingModels.add(model);
+                config.setModels(objectMapper.writeValueAsString(existingModels));
+                vendorConfigMapper.updateById(config);
+            } catch (Exception e) {
+                return R.fail("更新模型失败: " + e.getMessage());
+            }
+        }
         return R.ok(Map.of("message", "更新模型成功"));
     }
 
@@ -302,9 +350,21 @@ public class SettingController {
     }
 
     @PostMapping("/agentDeploy/agentSetKey")
-    public R<Map<String, String>> agentSetKey(@RequestBody OAgentDeploy deploy) {
-        agentDeployMapper.updateById(deploy);
-        return R.ok(Map.of("message", "设置成功"));
+    public R<String> agentSetKey(@RequestBody Map<String, Object> body) {
+        String key = body.get("key") != null ? body.get("key").toString() : "";
+        OVendorConfig vendor = vendorConfigMapper.selectById("toonflow");
+        if (vendor == null) return R.fail("未找到toonflow供应商配置");
+        try {
+            Map<String, Object> inputValues = objectMapper.readValue(
+                    vendor.getInputValues() != null ? vendor.getInputValues() : "{}",
+                    new TypeReference<Map<String, Object>>() {});
+            inputValues.put("apiKey", key);
+            vendor.setInputValues(objectMapper.writeValueAsString(inputValues));
+            vendorConfigMapper.updateById(vendor);
+        } catch (Exception e) {
+            return R.fail("设置失败: " + e.getMessage());
+        }
+        return R.ok("一键填入成功");
     }
 
     // ========== 提示词管理 ==========
