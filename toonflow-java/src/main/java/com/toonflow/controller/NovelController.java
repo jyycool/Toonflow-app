@@ -1,6 +1,7 @@
 package com.toonflow.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.toonflow.common.exception.BusinessException;
 import com.toonflow.common.result.R;
 import com.toonflow.entity.OEvent;
@@ -15,8 +16,8 @@ import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/novel")
@@ -38,7 +39,7 @@ public class NovelController {
                         .last("LIMIT 1"));
         int lastIndex = last != null ? last.getChapterIndex() : 0;
 
-        List<ONovel> inserted = new java.util.ArrayList<>();
+        List<ONovel> inserted = new ArrayList<>();
         for (AddNovelRequest.NovelItem item : req.getData()) {
             ONovel novel = new ONovel();
             novel.setProjectId(req.getProjectId());
@@ -56,18 +57,127 @@ public class NovelController {
         return R.ok(Map.of("message", "新增原文成功"));
     }
 
+    /**
+     * Fix 1: POST /api/novel/getNovel
+     * Input: { projectId, page (default 1), limit (default 20), search? }
+     * Returns: { data: [...items with index=chapterIndex], total }
+     */
     @PostMapping("/getNovel")
-    public R<List<ONovel>> getNovel(@RequestBody Map<String, Integer> body) {
-        Integer projectId = body.get("projectId");
+    public R<Map<String, Object>> getNovel(@RequestBody Map<String, Object> body) {
+        Integer projectId = (Integer) body.get("projectId");
+        int page = body.get("page") != null ? ((Number) body.get("page")).intValue() : 1;
+        int limit = body.get("limit") != null ? ((Number) body.get("limit")).intValue() : 20;
+        String search = (String) body.get("search");
+
+        LambdaQueryWrapper<ONovel> wrapper = new LambdaQueryWrapper<ONovel>()
+                .eq(ONovel::getProjectId, projectId)
+                .orderByAsc(ONovel::getChapterIndex);
+        if (search != null && !search.isEmpty()) {
+            wrapper.like(ONovel::getChapter, search);
+        }
+
+        Page<ONovel> pageObj = novelMapper.selectPage(new Page<>(page, limit), wrapper);
+
+        List<Map<String, Object>> items = pageObj.getRecords().stream().map(n -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", n.getId());
+            m.put("projectId", n.getProjectId());
+            m.put("index", n.getChapterIndex());
+            m.put("reel", n.getReel());
+            m.put("chapter", n.getChapter());
+            m.put("chapterData", n.getChapterData());
+            m.put("event", n.getEvent());
+            m.put("eventState", n.getEventState());
+            m.put("errorReason", n.getErrorReason());
+            m.put("createTime", n.getCreateTime());
+            return m;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("data", items);
+        result.put("total", pageObj.getTotal());
+        return R.ok(result);
+    }
+
+    /**
+     * Fix 2: POST /api/novel/getNovelEventState
+     * Input: { ids: [number,...] }
+     * Returns: rows where eventState != 0, each as { id, event, eventState, errorReason }
+     */
+    @PostMapping("/getNovelEventState")
+    public R<List<Map<String, Object>>> getNovelEventState(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked")
+        List<Integer> ids = (List<Integer>) body.get("ids");
+        if (ids == null || ids.isEmpty()) return R.ok(List.of());
+
+        List<ONovel> list = novelMapper.selectList(
+                new LambdaQueryWrapper<ONovel>()
+                        .in(ONovel::getId, ids)
+                        .ne(ONovel::getEventState, 0)
+                        .select(ONovel::getId, ONovel::getEvent, ONovel::getEventState, ONovel::getErrorReason));
+
+        List<Map<String, Object>> result = list.stream().map(n -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", n.getId());
+            m.put("event", n.getEvent());
+            m.put("eventState", n.getEventState());
+            m.put("errorReason", n.getErrorReason());
+            return m;
+        }).collect(Collectors.toList());
+
+        return R.ok(result);
+    }
+
+    /**
+     * Fix 3: POST /api/novel/getNovelIndex
+     * Returns: [{ id, index (=chapterIndex), chapter }] — no reel field
+     */
+    @PostMapping("/getNovelIndex")
+    public R<List<Map<String, Object>>> getNovelIndex(@RequestBody Map<String, Object> body) {
+        Integer projectId = (Integer) body.get("projectId");
         List<ONovel> list = novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>()
                         .eq(ONovel::getProjectId, projectId)
+                        .select(ONovel::getId, ONovel::getChapterIndex, ONovel::getChapter)
                         .orderByAsc(ONovel::getChapterIndex));
-        return R.ok(list);
+
+        List<Map<String, Object>> result = list.stream().map(n -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", n.getId());
+            m.put("index", n.getChapterIndex());
+            m.put("chapter", n.getChapter());
+            return m;
+        }).collect(Collectors.toList());
+
+        return R.ok(result);
     }
 
+    /**
+     * Fix 4: POST /api/novel/updateNovel
+     * Input: { id, index (→ chapterIndex), reel, chapter, chapterData, event }
+     */
     @PostMapping("/updateNovel")
-    public R<Map<String, String>> updateNovel(@RequestBody ONovel novel) {
+    public R<Map<String, String>> updateNovel(@RequestBody Map<String, Object> body) {
+        Integer id = (Integer) body.get("id");
+        if (id == null) throw new BusinessException("id不能为空");
+
+        ONovel novel = new ONovel();
+        novel.setId(id);
+        if (body.get("index") != null) {
+            novel.setChapterIndex(((Number) body.get("index")).intValue());
+        }
+        if (body.get("reel") != null) {
+            novel.setReel((String) body.get("reel"));
+        }
+        if (body.get("chapter") != null) {
+            novel.setChapter((String) body.get("chapter"));
+        }
+        if (body.get("chapterData") != null) {
+            novel.setChapterData((String) body.get("chapterData"));
+        }
+        if (body.get("event") != null) {
+            novel.setEvent((String) body.get("event"));
+        }
         novelMapper.updateById(novel);
         return R.ok(Map.of("message", "更新成功"));
     }
@@ -86,27 +196,6 @@ public class NovelController {
         if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
         novelMapper.deleteBatchIds(ids);
         return R.ok(Map.of("message", "批量删除成功"));
-    }
-
-    @PostMapping("/getNovelIndex")
-    public R<List<ONovel>> getNovelIndex(@RequestBody Map<String, Integer> body) {
-        Integer projectId = body.get("projectId");
-        List<ONovel> list = novelMapper.selectList(
-                new LambdaQueryWrapper<ONovel>()
-                        .eq(ONovel::getProjectId, projectId)
-                        .select(ONovel::getId, ONovel::getChapterIndex, ONovel::getReel, ONovel::getChapter)
-                        .orderByAsc(ONovel::getChapterIndex));
-        return R.ok(list);
-    }
-
-    @PostMapping("/getNovelEventState")
-    public R<List<ONovel>> getNovelEventState(@RequestBody Map<String, Integer> body) {
-        Integer projectId = body.get("projectId");
-        List<ONovel> list = novelMapper.selectList(
-                new LambdaQueryWrapper<ONovel>()
-                        .eq(ONovel::getProjectId, projectId)
-                        .select(ONovel::getId, ONovel::getEventState, ONovel::getErrorReason));
-        return R.ok(list);
     }
 
     @PostMapping("/getNovelData")
@@ -142,47 +231,69 @@ public class NovelController {
     // ========== 事件管理 ==========
 
     /**
-     * 分页查询事件（联查 o_eventChapter -> o_novel 过滤 projectId）
+     * Fix 5: POST /api/novel/event/getEvent
+     * Input: { projectId }
+     * Returns: { list: [{ id, eventName, detail, createTime, chapters: [chapterIndex,...] }], total }
      */
     @PostMapping("/event/getEvent")
     public R<Map<String, Object>> getEvent(@RequestBody Map<String, Object> body) {
         Integer projectId = (Integer) body.get("projectId");
-        int page = body.get("page") != null ? (Integer) body.get("page") : 1;
-        int limit = body.get("limit") != null ? (Integer) body.get("limit") : 10;
-        String search = (String) body.get("search");
 
-        // 查出该项目下的所有 novelId
-        List<Integer> novelIds = novelMapper.selectList(
+        // Get all novels for this project
+        List<ONovel> novels = novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>()
                         .eq(ONovel::getProjectId, projectId)
-                        .select(ONovel::getId))
-                .stream().map(ONovel::getId).toList();
+                        .select(ONovel::getId, ONovel::getChapterIndex));
 
-        if (novelIds.isEmpty()) {
+        if (novels.isEmpty()) {
             return R.ok(Map.of("list", List.of(), "total", 0));
         }
 
-        // 通过 eventChapter 找到关联的 eventId
-        List<Integer> eventIds = eventChapterMapper.selectList(
+        // Map novelId -> chapterIndex
+        Map<Integer, Integer> novelChapterIndexMap = novels.stream()
+                .collect(Collectors.toMap(ONovel::getId, ONovel::getChapterIndex));
+        List<Integer> novelIds = new ArrayList<>(novelChapterIndexMap.keySet());
+
+        // Get all event chapters for these novels
+        List<OEventChapter> eventChapters = eventChapterMapper.selectList(
                 new LambdaQueryWrapper<OEventChapter>()
-                        .in(OEventChapter::getNovelId, novelIds)
-                        .select(OEventChapter::getEventId))
-                .stream().map(OEventChapter::getEventId).distinct().toList();
+                        .in(OEventChapter::getNovelId, novelIds));
 
-        if (eventIds.isEmpty()) {
+        if (eventChapters.isEmpty()) {
             return R.ok(Map.of("list", List.of(), "total", 0));
         }
 
-        LambdaQueryWrapper<OEvent> wrapper = new LambdaQueryWrapper<OEvent>()
-                .in(OEvent::getId, eventIds);
-        if (search != null && !search.isEmpty()) {
-            wrapper.like(OEvent::getName, search);
+        // Group chapterIndexes by eventId
+        Map<Integer, List<Integer>> eventChapterIndexes = new LinkedHashMap<>();
+        for (OEventChapter ec : eventChapters) {
+            Integer chapterIndex = novelChapterIndexMap.get(ec.getNovelId());
+            if (chapterIndex != null) {
+                eventChapterIndexes.computeIfAbsent(ec.getEventId(), k -> new ArrayList<>()).add(chapterIndex);
+            }
         }
-        long total = eventMapper.selectCount(wrapper);
-        wrapper.last("LIMIT " + limit + " OFFSET " + ((page - 1) * limit));
-        List<OEvent> list = eventMapper.selectList(wrapper);
 
-        return R.ok(Map.of("list", list, "total", total));
+        List<Integer> eventIds = new ArrayList<>(eventChapterIndexes.keySet());
+
+        // Get all events
+        List<OEvent> events = eventMapper.selectList(
+                new LambdaQueryWrapper<OEvent>().in(OEvent::getId, eventIds));
+
+        long total = events.size();
+
+        List<Map<String, Object>> list = events.stream().map(e -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", e.getId());
+            m.put("eventName", e.getName());
+            m.put("detail", e.getDetail());
+            m.put("createTime", e.getCreateTime());
+            m.put("chapters", eventChapterIndexes.getOrDefault(e.getId(), List.of()));
+            return m;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("list", list);
+        result.put("total", total);
+        return R.ok(result);
     }
 
     @PostMapping("/event/deletEvent")

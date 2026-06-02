@@ -12,14 +12,16 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.File;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/project")
@@ -68,6 +70,7 @@ public class ProjectController {
         if (project == null) throw new BusinessException("项目不存在");
         if (req.getName() != null) project.setName(req.getName());
         if (req.getIntro() != null) project.setIntro(req.getIntro());
+        if (req.getType() != null) project.setType(req.getType());
         if (req.getArtStyle() != null) project.setArtStyle(req.getArtStyle());
         if (req.getDirectorManual() != null) project.setDirectorManual(req.getDirectorManual());
         if (req.getVideoRatio() != null) project.setVideoRatio(req.getVideoRatio());
@@ -105,8 +108,11 @@ public class ProjectController {
 
     // ========== 视觉手册（Markdown 文件存储于 skills 目录）==========
 
+    /**
+     * Fix 1: return raw string content, not wrapped map.
+     */
     @PostMapping("/visualManual")
-    public R<Map<String, String>> visualManual(@RequestBody Map<String, String> body) {
+    public R<String> visualManual(@RequestBody Map<String, String> body) {
         String type = body.get("type");
         Path base = Paths.get(dataDir, "skills", "art_skills", "chinese_sweet_romance");
         String content = "";
@@ -114,53 +120,93 @@ public class ProjectController {
             content = stream.filter(Files::isRegularFile)
                     .filter(p -> p.getFileName().toString().equals(type + ".md"))
                     .findFirst()
-                    .map(p -> { try { return Files.readString(p, java.nio.charset.StandardCharsets.UTF_8); } catch (Exception e) { return ""; } })
+                    .map(p -> { try { return Files.readString(p, StandardCharsets.UTF_8); } catch (Exception e) { return ""; } })
                     .orElse("");
         } catch (Exception ignored) {}
-        return R.ok(Map.of("type", type, "content", content));
+        return R.ok(content);
     }
 
+    /**
+     * Fix 2: getVisualManual — items have { name, image, stylePath, data } (no directorManual).
+     */
     @PostMapping("/getVisualManual")
     public R<List<Map<String, Object>>> getVisualManual() {
-        return R.ok(readSkillDirs("art_skills", VISUAL_DATA_MAP));
+        return R.ok(readSkillDirs("art_skills", VISUAL_DATA_MAP, "stylePath"));
     }
 
+    /**
+     * Fix 3: queryDirectorManual — items have { name, image, directorManual, data } (no stylePath).
+     */
     @PostMapping("/queryDirectorManual")
     public R<List<Map<String, Object>>> queryDirectorManual() {
-        return R.ok(readSkillDirs("story_skills", DIRECTOR_DATA_MAP));
+        return R.ok(readSkillDirs("story_skills", DIRECTOR_DATA_MAP, "directorManual"));
     }
 
+    /**
+     * Fix 5: addVisualManual — write md files and images under skills/art_skills/{stylePath}/
+     */
     @PostMapping("/addVisualManual")
     public R<Map<String, String>> addVisualManual(@RequestBody Map<String, Object> body) {
+        saveManual(body, "art_skills", VISUAL_SUBDIR_MAP, false);
         return R.ok(Map.of("message", "视觉手册已保存"));
     }
 
+    /**
+     * Fix 6: addDirectorManual — write md files and images under skills/story_skills/{directorManual}/
+     */
     @PostMapping("/addDirectorManual")
     public R<Map<String, String>> addDirectorManual(@RequestBody Map<String, Object> body) {
+        saveManual(body, "story_skills", DIRECTOR_SUBDIR_MAP, false);
         return R.ok(Map.of("message", "导演手册已保存"));
     }
 
+    /**
+     * Fix 7: editVisualManual — overwrite existing files.
+     */
     @PostMapping("/editVisualManual")
     public R<Map<String, String>> editVisualManual(@RequestBody Map<String, Object> body) {
+        saveManual(body, "art_skills", VISUAL_SUBDIR_MAP, true);
         return R.ok(Map.of("message", "视觉手册已更新"));
     }
 
+    /**
+     * Fix 8: editDirectorlManual (note: original typo preserved in URL).
+     */
     @PostMapping("/editDirectorlManual")
-    public R<Map<String, String>> editDirectorManual(@RequestBody Map<String, Object> body) {
+    public R<Map<String, String>> editDirectorlManual(@RequestBody Map<String, Object> body) {
+        saveManual(body, "story_skills", DIRECTOR_SUBDIR_MAP, true);
         return R.ok(Map.of("message", "导演手册已更新"));
     }
 
+    /**
+     * Fix 9: deleteVisualManual — delete skills/art_skills/{name}/ recursively.
+     */
     @PostMapping("/deleteVisualManual")
     public R<Map<String, String>> deleteVisualManual(@RequestBody Map<String, Object> body) {
+        String name = (String) body.get("name");
+        if (name == null || name.isBlank()) throw new BusinessException("name不能为空");
+        validateName(name);
+        Path dir = Paths.get(dataDir, "skills", "art_skills", name);
+        deleteDirectory(dir);
         return R.ok(Map.of("message", "视觉手册已删除"));
     }
 
+    /**
+     * Fix 10: deleteDirectorManual — delete skills/story_skills/{name}/ recursively.
+     */
     @PostMapping("/deleteDirectorManual")
     public R<Map<String, String>> deleteDirectorManual(@RequestBody Map<String, Object> body) {
+        String name = (String) body.get("name");
+        if (name == null || name.isBlank()) throw new BusinessException("name不能为空");
+        validateName(name);
+        Path dir = Paths.get(dataDir, "skills", "story_skills", name);
+        deleteDirectory(dir);
         return R.ok(Map.of("message", "导演手册已删除"));
     }
 
-    // [label, value, subDir]  subDir="" 表示在风格目录根下
+    // ========== helpers ==========
+
+    // [label, value, subDir]  subDir="" means at style dir root
     private static final List<String[]> VISUAL_DATA_MAP = List.of(
             new String[]{"README", "README", ""},
             new String[]{"前缀", "prefix", ""},
@@ -180,7 +226,26 @@ public class ProjectController {
             new String[]{"导演规划", "director_planning_narrative", "driector_skills"},
             new String[]{"分镜表", "director_storyboard_table_narrative", "driector_skills"});
 
-    private List<Map<String, Object>> readSkillDirs(String skillsSubDir, List<String[]> dataMap) {
+    // value -> subDir map for visual manual
+    private static final Map<String, String> VISUAL_SUBDIR_MAP;
+    // value -> subDir map for director manual
+    private static final Map<String, String> DIRECTOR_SUBDIR_MAP;
+
+    static {
+        Map<String, String> vm = new LinkedHashMap<>();
+        for (String[] e : VISUAL_DATA_MAP) vm.put(e[1], e[2]);
+        VISUAL_SUBDIR_MAP = Collections.unmodifiableMap(vm);
+
+        Map<String, String> dm = new LinkedHashMap<>();
+        for (String[] e : DIRECTOR_DATA_MAP) dm.put(e[1], e[2]);
+        DIRECTOR_SUBDIR_MAP = Collections.unmodifiableMap(dm);
+    }
+
+    /**
+     * Read skill directories and build result list.
+     * @param dirFieldName either "stylePath" or "directorManual"
+     */
+    private List<Map<String, Object>> readSkillDirs(String skillsSubDir, List<String[]> dataMap, String dirFieldName) {
         Path skillsRoot = Paths.get(dataDir, "skills", skillsSubDir);
         List<Map<String, Object>> result = new java.util.ArrayList<>();
         if (!Files.exists(skillsRoot)) return result;
@@ -188,17 +253,17 @@ public class ProjectController {
             List<Path> dirs = stream.filter(Files::isDirectory).sorted().toList();
             for (Path styleDir : dirs) {
                 String dirName = styleDir.getFileName().toString();
-                // 读取 README 第一行作为 name
+                // Read README first line as name
                 Path readmePath = styleDir.resolve("README.md");
                 String name = dirName;
                 if (Files.exists(readmePath)) {
                     try {
-                        String first = Files.readString(readmePath, java.nio.charset.StandardCharsets.UTF_8)
+                        String first = Files.readString(readmePath, StandardCharsets.UTF_8)
                                 .lines().findFirst().orElse("").replace("--", "").trim();
                         if (!first.isEmpty()) name = first;
                     } catch (Exception ignored) {}
                 }
-                // 收集 images 目录下图片
+                // Collect images
                 Path imagesDir = styleDir.resolve("images");
                 List<String> images = new java.util.ArrayList<>();
                 if (Files.exists(imagesDir)) {
@@ -208,7 +273,7 @@ public class ProjectController {
                                 .forEach(images::add);
                     } catch (Exception ignored) {}
                 }
-                // 读取各字段 md 内容
+                // Read each md field
                 List<Map<String, String>> data = new java.util.ArrayList<>();
                 for (String[] entry : dataMap) {
                     String label = entry[0], value = entry[1], subDir = entry[2];
@@ -217,7 +282,7 @@ public class ProjectController {
                             : styleDir.resolve(subDir).resolve(value + ".md");
                     String content = "";
                     if (Files.exists(mdPath)) {
-                        try { content = Files.readString(mdPath, java.nio.charset.StandardCharsets.UTF_8); }
+                        try { content = Files.readString(mdPath, StandardCharsets.UTF_8); }
                         catch (Exception ignored) {}
                     }
                     Map<String, String> d = new java.util.HashMap<>();
@@ -229,9 +294,7 @@ public class ProjectController {
                 Map<String, Object> item = new java.util.HashMap<>();
                 item.put("name", name);
                 item.put("image", images);
-                // getVisualManual 用 stylePath，queryDirectorManual 用 directorManual
-                item.put("stylePath", dirName);
-                item.put("directorManual", dirName);
+                item.put(dirFieldName, dirName);  // only one of stylePath or directorManual
                 item.put("data", data);
                 result.add(item);
             }
@@ -239,6 +302,122 @@ public class ProjectController {
             throw new BusinessException("读取手册失败: " + e.getMessage());
         }
         return result;
+    }
+
+    /**
+     * Shared logic for add/edit visual and director manuals.
+     * For visual: pathKey="stylePath", skillsSubDir="art_skills"
+     * For director: pathKey="directorManual", skillsSubDir="story_skills"
+     */
+    @SuppressWarnings("unchecked")
+    private void saveManual(Map<String, Object> body, String skillsSubDir,
+                            Map<String, String> subdirMap, boolean editMode) {
+        String name = (String) body.get("name");
+        if (name == null || name.isBlank()) throw new BusinessException("name不能为空");
+        validateName(name);
+
+        // For visual: stylePath; for director: directorManual
+        String pathKey = skillsSubDir.equals("art_skills") ? "stylePath" : "directorManual";
+        String dirKey = body.containsKey(pathKey) ? (String) body.get(pathKey) : name;
+        if (dirKey == null || dirKey.isBlank()) dirKey = name;
+
+        Path mainPath = Paths.get(dataDir, "skills", skillsSubDir, dirKey);
+
+        if (!editMode && Files.exists(mainPath)) {
+            throw new BusinessException("请勿填写重复名称的手册");
+        }
+        if (editMode && !Files.exists(mainPath)) {
+            throw new BusinessException("手册不存在");
+        }
+
+        // Write md files
+        List<Map<String, Object>> data = (List<Map<String, Object>>) body.get("data");
+        if (data != null) {
+            Set<String> validKeys = subdirMap.keySet();
+            for (Map<String, Object> item : data) {
+                String value = (String) item.get("value");
+                String content = (String) item.get("data");
+                if (value == null || !validKeys.contains(value)) continue;
+                if (content == null) content = "";
+                String subDir = subdirMap.get(value);
+                Path fileDir = (subDir == null || subDir.isEmpty()) ? mainPath : mainPath.resolve(subDir);
+                Path filePath = fileDir.resolve(value + ".md");
+                // For README prepend name (matches original editVisualManual/editDirectorlManual behavior)
+                String fileContent = "README".equals(value) ? name + "\n" + content : content;
+                try {
+                    Files.createDirectories(fileDir);
+                    Files.writeString(filePath, fileContent, StandardCharsets.UTF_8);
+                } catch (Exception e) {
+                    throw new BusinessException("写入文件失败: " + e.getMessage());
+                }
+            }
+        }
+
+        // Handle images: images is List<String> where each entry is either a URL (http) or base64
+        List<String> images = (List<String>) body.get("images");
+        if (images == null) images = List.of();
+
+        Path imagesDir = mainPath.resolve("images");
+
+        // Delete images not retained (those starting with http are retained by filename)
+        if (Files.exists(imagesDir)) {
+            Set<String> retainedNames = new LinkedHashSet<>();
+            for (String img : images) {
+                if (img.startsWith("http")) {
+                    try {
+                        String fileName = Paths.get(new java.net.URI(img).getPath()).getFileName().toString();
+                        retainedNames.add(fileName);
+                    } catch (Exception ignored) {}
+                }
+            }
+            try (java.util.stream.Stream<Path> imgStream = Files.list(imagesDir)) {
+                List<Path> existing = imgStream
+                        .filter(p -> p.getFileName().toString().matches("(?i).*\\.(png|jpe?g|gif|webp|svg)"))
+                        .toList();
+                for (Path f : existing) {
+                    if (!retainedNames.contains(f.getFileName().toString())) {
+                        try { Files.deleteIfExists(f); } catch (Exception ignored) {}
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // Write new base64 images
+        try {
+            Files.createDirectories(imagesDir);
+        } catch (Exception e) {
+            throw new BusinessException("创建图片目录失败: " + e.getMessage());
+        }
+        for (String img : images) {
+            if (!img.startsWith("http")) {
+                try {
+                    String b64 = img.replaceFirst("^data:[^;]+;base64,", "");
+                    byte[] bytes = Base64.getDecoder().decode(b64);
+                    String fileName = UUID.randomUUID().toString().replace("-", "") + ".jpg";
+                    Files.write(imagesDir.resolve(fileName), bytes);
+                } catch (Exception e) {
+                    throw new BusinessException("保存图片失败: " + e.getMessage());
+                }
+            }
+        }
+    }
+
+    private void validateName(String name) {
+        if (name.contains("/") || name.contains("\\") || ".".equals(name) || "..".equals(name)
+                || name.matches("^\\d+$")) {
+            throw new BusinessException("名称不能包含路径分隔符或为纯数字");
+        }
+    }
+
+    private void deleteDirectory(Path dir) {
+        try {
+            FileUtils.deleteDirectory(dir.toFile());
+        } catch (Exception e) {
+            // Ignore if directory doesn't exist, otherwise rethrow
+            if (dir.toFile().exists()) {
+                throw new BusinessException("删除目录失败: " + e.getMessage());
+            }
+        }
     }
 
     @Data
@@ -261,6 +440,7 @@ public class ProjectController {
         @NotNull private Long id;
         private String name;
         private String intro;
+        private String type;
         private String artStyle;
         private String directorManual;
         private String videoRatio;

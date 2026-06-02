@@ -11,6 +11,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -25,6 +27,7 @@ public class SettingController {
     private final OAgentDeployMapper agentDeployMapper;
     private final OPromptMapper promptMapper;
     private final OUserMapper userMapper;
+    private final com.toonflow.mapper.MemoriesMapper memoriesMapper;
 
     @Value("${toonflow.data-dir}")
     private String dataDir;
@@ -260,8 +263,21 @@ public class SettingController {
     // ========== Agent 部署配置 ==========
 
     @PostMapping("/agentDeploy/getAgentDeploy")
-    public R<List<OAgentDeploy>> getAgentDeploy() {
-        return R.ok(agentDeployMapper.selectList(null));
+    public R<Map<String, Object>> getAgentDeploy() {
+        List<OAgentDeploy> allData = agentDeployMapper.selectList(null);
+        List<OAgentDeploy> qrdinaryData = new ArrayList<>();
+        List<OAgentDeploy> advancedData = new ArrayList<>();
+        for (OAgentDeploy item : allData) {
+            if (item.getKey() != null && item.getKey().contains(":")) {
+                advancedData.add(item);
+            } else {
+                qrdinaryData.add(item);
+            }
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("qrdinaryData", qrdinaryData);
+        result.put("advancedData", advancedData);
+        return R.ok(result);
     }
 
     @PostMapping("/agentDeploy/deployAgentModel")
@@ -280,7 +296,7 @@ public class SettingController {
     public R<Map<String, String>> updateUseMode(@RequestBody Map<String, String> body) {
         OSetting setting = new OSetting();
         setting.setKey("agentUseMode");
-        setting.setValue(body.get("mode"));
+        setting.setValue(body.get("agentUseMode"));
         settingMapper.updateById(setting);
         return R.ok(Map.of("message", "更新成功"));
     }
@@ -294,17 +310,37 @@ public class SettingController {
     // ========== 提示词管理 ==========
 
     @PostMapping("/promptManage/getPrompt")
-    public R<List<OPrompt>> getPrompt(@RequestBody(required = false) Map<String, String> body) {
+    public R<List<Map<String, Object>>> getPrompt(@RequestBody(required = false) Map<String, String> body) {
         String type = body != null ? body.get("type") : null;
         LambdaQueryWrapper<OPrompt> wrapper = new LambdaQueryWrapper<>();
         if (type != null) wrapper.eq(OPrompt::getType, type);
-        return R.ok(promptMapper.selectList(wrapper));
+        List<OPrompt> list = promptMapper.selectList(wrapper);
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (OPrompt item : list) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", item.getId());
+            row.put("name", item.getName());
+            row.put("type", item.getType());
+            row.put("useData", item.getUseData());
+            // Return useData if present, otherwise fall back to data
+            String displayData = (item.getUseData() != null && !item.getUseData().isEmpty())
+                    ? item.getUseData() : item.getData();
+            row.put("data", displayData);
+            result.add(row);
+        }
+        return R.ok(result);
     }
 
     @PostMapping("/promptManage/updatePrompt")
-    public R<Map<String, String>> updatePrompt(@RequestBody OPrompt prompt) {
+    public R<Integer> updatePrompt(@RequestBody Map<String, Object> body) {
+        Object idObj = body.get("id");
+        if (idObj == null) return R.fail("id不能为空");
+        Integer id = idObj instanceof Integer ? (Integer) idObj : Integer.parseInt(idObj.toString());
+        OPrompt prompt = promptMapper.selectById(id);
+        if (prompt == null) return R.fail("提示词不存在");
+        prompt.setUseData(body.get("data") != null ? body.get("data").toString() : null);
         promptMapper.updateById(prompt);
-        return R.ok(Map.of("message", "更新成功"));
+        return R.ok(123);
     }
 
     // ========== 登录配置 ==========
@@ -316,9 +352,12 @@ public class SettingController {
 
     @PostMapping("/loginConfig/updateUserPwd")
     public R<Map<String, String>> updateUserPwd(@RequestBody Map<String, String> body) {
-        OUser user = userMapper.selectById(1);
+        String idStr = body.get("id");
+        Integer id = idStr != null ? Integer.parseInt(idStr) : 1;
+        OUser user = userMapper.selectById(id);
         if (user != null) {
-            user.setPassword(body.get("password"));
+            if (body.get("name") != null) user.setName(body.get("name"));
+            if (body.get("password") != null) user.setPassword(body.get("password"));
             userMapper.updateById(user);
         }
         return R.ok(Map.of("message", "修改密码成功"));

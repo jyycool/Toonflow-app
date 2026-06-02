@@ -1,20 +1,26 @@
 package com.toonflow.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.toonflow.ai.AiService;
 import com.toonflow.ai.MemoryService;
+import com.toonflow.common.exception.BusinessException;
 import com.toonflow.common.result.R;
 import com.toonflow.entity.Memories;
 import com.toonflow.entity.OAgentWorkData;
+import com.toonflow.entity.OScript;
 import com.toonflow.mapper.MemoriesMapper;
 import com.toonflow.mapper.OAgentWorkDataMapper;
+import com.toonflow.mapper.OScriptMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 
-import java.util.List;
-import java.util.Map;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -24,71 +30,250 @@ public class AgentController {
     private final MemoryService memoryService;
     private final MemoriesMapper memoriesMapper;
     private final OAgentWorkDataMapper agentWorkDataMapper;
+    private final OScriptMapper scriptMapper;
     private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
-    @PostMapping("/api/agents/getMemory")
-    public R<List<Memories>> getMemory(@RequestBody Map<String, String> body) {
-        String isolationKey = body.get("isolationKey");
-        return R.ok(memoriesMapper.selectList(
-                new LambdaQueryWrapper<Memories>()
-                        .eq(Memories::getIsolationKey, isolationKey)
-                        .orderByDesc(Memories::getCreateTime)));
+    private static final DateTimeFormatter DATETIME_FORMATTER =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(ZoneId.systemDefault());
+
+    // Build isolationKey from projectId, agentType, and optional episodesId
+    private String buildIsolationKey(Object projectId, String agentType, Object episodesId) {
+        String key = projectId + ":" + agentType;
+        if (episodesId != null) {
+            key += ":" + episodesId;
+        }
+        return key;
     }
 
     @PostMapping("/api/agents/clearMemory")
-    public R<Map<String, String>> clearMemory(@RequestBody Map<String, String> body) {
-        memoryService.clear(body.get("isolationKey"));
-        return R.ok(Map.of("message", "记忆已清除"));
+    public R<Object> clearMemory(@RequestBody Map<String, Object> body) {
+        Object projectId = body.get("projectId");
+        String agentType = (String) body.get("agentType");
+        Object episodesId = body.get("episodesId");
+        String type = body.containsKey("type") ? (String) body.get("type") : "all";
+
+        String isolationKey = buildIsolationKey(projectId, agentType, episodesId);
+
+        if ("all".equals(type)) {
+            // Delete all memories for this isolationKey
+            memoriesMapper.delete(new LambdaQueryWrapper<Memories>()
+                    .eq(Memories::getIsolationKey, isolationKey));
+        } else if ("message".equals(type)) {
+            // Delete message and summary records
+            memoriesMapper.delete(new LambdaQueryWrapper<Memories>()
+                    .eq(Memories::getIsolationKey, isolationKey)
+                    .eq(Memories::getType, "message"));
+            memoriesMapper.delete(new LambdaQueryWrapper<Memories>()
+                    .eq(Memories::getIsolationKey, isolationKey)
+                    .eq(Memories::getType, "summary"));
+        } else {
+            // "summary": reset summarized=0 for summarized messages, delete summary records
+            memoriesMapper.update(null, new LambdaUpdateWrapper<Memories>()
+                    .eq(Memories::getIsolationKey, isolationKey)
+                    .eq(Memories::getType, "message")
+                    .eq(Memories::getSummarized, 1)
+                    .set(Memories::getSummarized, 0));
+            memoriesMapper.delete(new LambdaQueryWrapper<Memories>()
+                    .eq(Memories::getIsolationKey, isolationKey)
+                    .eq(Memories::getType, "summary"));
+        }
+
+        return R.ok(null);
+    }
+
+    @PostMapping("/api/agents/getMemory")
+    public R<List<Map<String, Object>>> getMemory(@RequestBody Map<String, Object> body) {
+        Object projectId = body.get("projectId");
+        String agentType = (String) body.get("agentType");
+        Object episodesId = body.get("episodesId");
+
+        String isolationKey = buildIsolationKey(projectId, agentType, episodesId);
+
+        List<Memories> rows = memoriesMapper.selectList(
+                new LambdaQueryWrapper<Memories>()
+                        .eq(Memories::getIsolationKey, isolationKey)
+                        .eq(Memories::getType, "message")
+                        .orderByAsc(Memories::getCreateTime));
+
+        List<Map<String, Object>> history = new ArrayList<>();
+        for (Memories row : rows) {
+            String role = row.getRole() != null && row.getRole().startsWith("assistant") ? "assistant" : "user";
+            String datetime = row.getCreateTime() != null
+                    ? DATETIME_FORMATTER.format(Instant.ofEpochMilli(row.getCreateTime()))
+                    : null;
+            Map<String, Object> contentItem = new LinkedHashMap<>();
+            contentItem.put("type", "markdown");
+            contentItem.put("status", "complete");
+            contentItem.put("data", row.getContent());
+
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", row.getId());
+            item.put("role", role);
+            if (row.getName() != null) {
+                item.put("name", row.getName());
+            }
+            item.put("status", "complete");
+            item.put("datetime", datetime);
+            item.put("content", List.of(contentItem));
+            item.put("createTime", row.getCreateTime());
+            history.add(item);
+        }
+
+        return R.ok(history);
     }
 
     @PostMapping("/api/scriptAgent/getPlanData")
-    public R<OAgentWorkData> getPlanData(@RequestBody Map<String, Object> body) {
-        Integer projectId = (Integer) body.get("projectId");
-        Integer episodesId = (Integer) body.get("episodesId");
-        String key = (String) body.get("key");
-        return R.ok(agentWorkDataMapper.selectOne(
+    public R<Map<String, Object>> getPlanData(@RequestBody Map<String, Object> body) {
+        Object projectId = body.get("projectId");
+        String agentType = (String) body.get("agentType");
+
+        OAgentWorkData row = agentWorkDataMapper.selectOne(
                 new LambdaQueryWrapper<OAgentWorkData>()
                         .eq(OAgentWorkData::getProjectId, projectId)
-                        .eq(OAgentWorkData::getEpisodesId, episodesId)
-                        .eq(OAgentWorkData::getKey, key)));
+                        .eq(OAgentWorkData::getKey, agentType));
+
+        Map<String, Object> result = new LinkedHashMap<>();
+
+        if (row == null) {
+            // Insert default record
+            OAgentWorkData newRow = new OAgentWorkData();
+            newRow.setProjectId(toInteger(projectId));
+            newRow.setKey(agentType);
+            Map<String, Object> defaultData = new LinkedHashMap<>();
+            defaultData.put("storySkeleton", "");
+            defaultData.put("adaptationStrategy", "");
+            try {
+                newRow.setData(objectMapper.writeValueAsString(defaultData));
+            } catch (Exception e) {
+                newRow.setData("{\"storySkeleton\":\"\",\"adaptationStrategy\":\"\"}");
+            }
+            newRow.setCreateTime(System.currentTimeMillis());
+            newRow.setUpdateTime(System.currentTimeMillis());
+            agentWorkDataMapper.insert(newRow);
+
+            result.put("data", defaultData);
+            result.put("id", newRow.getId());
+        } else {
+            Map<String, Object> parsedData;
+            try {
+                parsedData = objectMapper.readValue(row.getData() != null ? row.getData() : "{}",
+                        new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+            } catch (Exception e) {
+                parsedData = new LinkedHashMap<>();
+            }
+
+            // Fetch script rows
+            List<OScript> scripts = scriptMapper.selectList(
+                    new LambdaQueryWrapper<OScript>()
+                            .eq(OScript::getProjectId, toInteger(projectId))
+                            .select(OScript::getId, OScript::getName, OScript::getContent));
+
+            List<Map<String, Object>> scriptList = new ArrayList<>();
+            for (OScript s : scripts) {
+                Map<String, Object> scriptItem = new LinkedHashMap<>();
+                scriptItem.put("id", s.getId());
+                scriptItem.put("name", s.getName());
+                scriptItem.put("content", s.getContent());
+                scriptList.add(scriptItem);
+            }
+            parsedData.put("script", scriptList);
+
+            result.put("data", parsedData);
+            result.put("id", row.getId());
+        }
+
+        return R.ok(result);
     }
 
     @PostMapping("/api/scriptAgent/setPlanData")
-    public R<Map<String, String>> setPlanData(@RequestBody OAgentWorkData data) {
+    @SuppressWarnings("unchecked")
+    public R<Object> setPlanData(@RequestBody Map<String, Object> body) {
+        Object projectId = body.get("projectId");
+        String agentType = (String) body.get("agentType");
+        Map<String, Object> data = (Map<String, Object>) body.get("data");
+
+        // Extract script array before storing, then remove it from data
+        List<Map<String, Object>> scriptItems = null;
+        if (data != null && data.containsKey("script")) {
+            Object scriptVal = data.get("script");
+            if (scriptVal instanceof List) {
+                scriptItems = (List<Map<String, Object>>) scriptVal;
+            }
+        }
+
+        // Store data WITHOUT script in agentWorkData
+        Map<String, Object> dataToStore = new LinkedHashMap<>();
+        if (data != null) {
+            dataToStore.putAll(data);
+            dataToStore.remove("script");
+        }
+        String dataJson;
+        try {
+            dataJson = objectMapper.writeValueAsString(dataToStore);
+        } catch (Exception e) {
+            throw new BusinessException("序列化数据失败: " + e.getMessage());
+        }
+
         OAgentWorkData existing = agentWorkDataMapper.selectOne(
                 new LambdaQueryWrapper<OAgentWorkData>()
-                        .eq(OAgentWorkData::getProjectId, data.getProjectId())
-                        .eq(OAgentWorkData::getEpisodesId, data.getEpisodesId())
-                        .eq(OAgentWorkData::getKey, data.getKey()));
+                        .eq(OAgentWorkData::getProjectId, projectId)
+                        .eq(OAgentWorkData::getKey, agentType));
+
         if (existing == null) {
-            data.setCreateTime(System.currentTimeMillis());
-            data.setUpdateTime(System.currentTimeMillis());
-            agentWorkDataMapper.insert(data);
+            OAgentWorkData newRow = new OAgentWorkData();
+            newRow.setProjectId(toInteger(projectId));
+            newRow.setKey(agentType);
+            newRow.setData(dataJson);
+            newRow.setCreateTime(System.currentTimeMillis());
+            newRow.setUpdateTime(System.currentTimeMillis());
+            agentWorkDataMapper.insert(newRow);
         } else {
-            existing.setData(data.getData());
+            existing.setData(dataJson);
             existing.setUpdateTime(System.currentTimeMillis());
             agentWorkDataMapper.updateById(existing);
         }
-        return R.ok(Map.of("message", "保存成功"));
+
+        // Update o_script entries by name
+        if (scriptItems != null) {
+            Integer pid = toInteger(projectId);
+            for (Map<String, Object> s : scriptItems) {
+                String name = (String) s.get("name");
+                String content = (String) s.get("content");
+                OScript scriptRow = scriptMapper.selectOne(
+                        new LambdaQueryWrapper<OScript>()
+                                .eq(OScript::getProjectId, pid)
+                                .eq(OScript::getName, name));
+                if (scriptRow != null) {
+                    scriptRow.setContent(content);
+                    scriptMapper.updateById(scriptRow);
+                } else {
+                    OScript newScript = new OScript();
+                    newScript.setProjectId(pid);
+                    newScript.setName(name);
+                    newScript.setContent(content);
+                    newScript.setCreateTime(System.currentTimeMillis());
+                    scriptMapper.insert(newScript);
+                }
+            }
+        }
+
+        return R.ok(null);
     }
 
-    /**
-     * 更新工作区数据（剧本骨架/改编策略/剧本）
-     */
     @PostMapping("/api/scriptAgent/updateData")
-    public R<Map<String, String>> updateData(@RequestBody Map<String, Object> body) {
-        Integer id = (Integer) body.get("id");
+    public R<String> updateData(@RequestBody Map<String, Object> body) {
+        Integer id = toInteger(body.get("id"));
         Object data = body.get("data");
         OAgentWorkData work = agentWorkDataMapper.selectById(id);
-        if (work == null) throw new com.toonflow.common.exception.BusinessException("工作数据不存在");
+        if (work == null) throw new BusinessException("工作数据不存在");
         try {
             work.setData(objectMapper.writeValueAsString(data));
             work.setUpdateTime(System.currentTimeMillis());
             agentWorkDataMapper.updateById(work);
         } catch (Exception e) {
-            throw new com.toonflow.common.exception.BusinessException("更新失败: " + e.getMessage());
+            throw new BusinessException("更新失败: " + e.getMessage());
         }
-        return R.ok(Map.of("message", "更新成功"));
+        return R.ok("更新成功");
     }
 
     /**
@@ -101,5 +286,12 @@ public class AgentController {
                 new AiService.ChatMessage("user", prompt));
         return aiService.streamText(agentType, messages)
                 .map(chunk -> "data: " + chunk + "\n\n");
+    }
+
+    private Integer toInteger(Object val) {
+        if (val == null) return null;
+        if (val instanceof Integer) return (Integer) val;
+        if (val instanceof Number) return ((Number) val).intValue();
+        return Integer.parseInt(val.toString());
     }
 }

@@ -1,9 +1,12 @@
 package com.toonflow.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.toonflow.common.result.R;
 import com.toonflow.entity.OSetting;
+import com.toonflow.mapper.MemoriesMapper;
 import com.toonflow.mapper.OSettingMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -23,7 +26,9 @@ import java.util.Map;
 public class SettingMiscController {
 
     private final OSettingMapper settingMapper;
+    private final MemoriesMapper memoriesMapper;
     private final RestClient restClient = RestClient.create();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final List<String> MEMORY_KEYS = List.of(
             "messagesPerSummary", "shortTermLimit", "summaryMaxLength",
@@ -39,7 +44,13 @@ public class SettingMiscController {
         Map<String, Object> result = new HashMap<>();
         for (OSetting s : settings) {
             if (s.getKey() == null || s.getValue() == null) continue;
-            if ("modelDtype".equals(s.getKey()) || "modelOnnxFile".equals(s.getKey())) {
+            if ("modelOnnxFile".equals(s.getKey())) {
+                try {
+                    result.put(s.getKey(), objectMapper.readValue(s.getValue(), new TypeReference<List<String>>() {}));
+                } catch (Exception e) {
+                    result.put(s.getKey(), s.getValue());
+                }
+            } else if ("modelDtype".equals(s.getKey())) {
                 result.put(s.getKey(), s.getValue());
             } else {
                 try {
@@ -63,8 +74,9 @@ public class SettingMiscController {
     }
 
     @PostMapping("/memoryConfig/delAllMemory")
-    public R<Map<String, String>> delAllMemory() {
-        return R.ok(Map.of("message", "记忆已清空"));
+    public R<Boolean> delAllMemory() {
+        memoriesMapper.delete(null);
+        return R.ok(true);
     }
 
     // ========== 开发工具开关 ==========
@@ -77,7 +89,7 @@ public class SettingMiscController {
 
     @PostMapping("/dev/updateSwitchAiDevTool")
     public R<Map<String, String>> updateSwitchAiDevTool(@RequestBody Map<String, String> body) {
-        upsertSetting("switchAiDevTool", body.getOrDefault("value", "0"));
+        upsertSetting("switchAiDevTool", body.getOrDefault("switchAiDevTool", "0"));
         return R.ok(Map.of("message", "更新成功"));
     }
 
