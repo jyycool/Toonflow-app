@@ -300,6 +300,32 @@ public class ProductionController {
     }
 
     /**
+     * 轮询制作侧素材图片生成状态
+     */
+    @PostMapping("/assets/pollingImage")
+    public R<List<Map<String, Object>>> pollingProductionAssets(@RequestBody Map<String, List<Integer>> body) {
+        List<Integer> ids = body.get("ids");
+        if (ids == null || ids.isEmpty()) return R.ok(List.of());
+        List<com.toonflow.entity.OAssets> assetsList = assetsMapper.selectList(
+                new LambdaQueryWrapper<com.toonflow.entity.OAssets>().in(com.toonflow.entity.OAssets::getId, ids));
+        List<Map<String, Object>> result = assetsList.stream().map(asset -> {
+            Map<String, Object> item = new java.util.HashMap<>();
+            item.put("id", asset.getId());
+            item.put("prompt", asset.getPrompt());
+            if (asset.getImageId() != null) {
+                com.toonflow.entity.OImage img = imageMapper.selectById(asset.getImageId());
+                if (img != null) {
+                    item.put("state", img.getState());
+                    item.put("filePath", img.getFilePath());
+                    item.put("errorReason", img.getErrorReason());
+                }
+            }
+            return item;
+        }).filter(m -> !"生成中".equals(m.get("state"))).toList();
+        return R.ok(result);
+    }
+
+    /**
      * 删除衍生素材（含关联的图片流程和分镜关联）
      */
     @PostMapping("/assets/deleteAssetsDireve")
