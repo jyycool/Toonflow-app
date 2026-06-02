@@ -31,11 +31,11 @@ public class VideoGenerationService {
      * 异步生成视频：委托适配器完成提交+轮询，再更新状态
      */
     @Async
-    public void asyncGenerate(Integer videoId, Integer projectId, String prompt) {
-        OProject project = projectMapper.selectById(projectId.longValue());
+    public void asyncGenerate(String videoId, String projectId, String prompt) {
+        OProject project = projectMapper.selectById(projectId);
         String videoModel = project != null ? project.getVideoModel() : null;
 
-        Integer taskId = taskRecordService.start(projectId, "视频生成", videoModel,
+        String taskId = taskRecordService.start(projectId, "视频生成", videoModel,
                 "视频#" + videoId, null);
 
         try {

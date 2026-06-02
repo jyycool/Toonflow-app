@@ -37,7 +37,7 @@ public class ProductionController {
 
     @PostMapping("/getFlowData")
     public R<OImageFlow> getFlowData(@RequestBody Map<String, Object> body) {
-        return R.ok(imageFlowMapper.selectById(body.get("id") != null ? ((Number) body.get("id")).intValue() : null));
+        return R.ok(imageFlowMapper.selectById(body.get("id") != null ? (String) body.get("id") : null));
     }
 
     @PostMapping("/saveFlowData")
@@ -52,7 +52,7 @@ public class ProductionController {
 
     @PostMapping("/getStoryboardData")
     public R<List<OStoryboard>> getStoryboardData(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
         return R.ok(storyboardMapper.selectList(
                 new LambdaQueryWrapper<OStoryboard>()
                         .eq(OStoryboard::getProjectId, projectId)
@@ -63,7 +63,7 @@ public class ProductionController {
 
     @PostMapping("/workbench/getVideoList")
     public R<List<OVideo>> getVideoList(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
         return R.ok(videoMapper.selectList(
                 new LambdaQueryWrapper<OVideo>().eq(OVideo::getProjectId, projectId)));
     }
@@ -76,15 +76,15 @@ public class ProductionController {
 
     @PostMapping("/workbench/deleteTrack")
     public R<Map<String, String>> deleteTrack(@RequestBody Map<String, Object> body) {
-        videoTrackMapper.deleteById(body.get("id") != null ? ((Number) body.get("id")).intValue() : null);
+        videoTrackMapper.deleteById(body.get("id") != null ? (String) body.get("id") : null);
         return R.ok(Map.of("message", "删除轨道成功"));
     }
 
     @PostMapping("/workbench/selectVideo")
     public R<Map<String, String>> selectVideo(@RequestBody Map<String, Object> body) {
-        OVideoTrack track = videoTrackMapper.selectById(((Number) body.get("trackId")).intValue());
+        OVideoTrack track = videoTrackMapper.selectById((String) body.get("trackId"));
         if (track != null) {
-            track.setSelectVideoId(body.get("videoId") != null ? ((Number) body.get("videoId")).intValue() : null);
+            track.setSelectVideoId(body.get("videoId") != null ? (String) body.get("videoId") : null);
             videoTrackMapper.updateById(track);
         }
         return R.ok(Map.of("message", "选择视频成功"));
@@ -92,7 +92,7 @@ public class ProductionController {
 
     @PostMapping("/workbench/delVideo")
     public R<Map<String, String>> delVideo(@RequestBody Map<String, Object> body) {
-        videoMapper.deleteById(((Number) body.get("id")).intValue());
+        videoMapper.deleteById((String) body.get("id"));
         return R.ok(Map.of("message", "删除视频成功"));
     }
 
@@ -110,7 +110,7 @@ public class ProductionController {
 
     @PostMapping("/workbench/getGenerateData")
     public R<Map<String, Object>> getGenerateData(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
         List<OVideoTrack> tracks = videoTrackMapper.selectList(
                 new LambdaQueryWrapper<OVideoTrack>().eq(OVideoTrack::getProjectId, projectId));
         List<OVideo> videos = videoMapper.selectList(
@@ -120,9 +120,7 @@ public class ProductionController {
 
     @PostMapping("/workbench/checkVideoStateList")
     public R<List<OVideo>> checkVideoStateList(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked")
-        List<Number> raw_videoIds = (List<Number>) body.get("videoIds");
-        List<Integer> videoIds = raw_videoIds != null ? raw_videoIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        @SuppressWarnings("unchecked") List<String> videoIds = (List<String>) body.get("videoIds");
         if (videoIds == null || videoIds.isEmpty()) return R.ok(List.of());
         return R.ok(videoMapper.selectList(
                 new LambdaQueryWrapper<OVideo>()
@@ -135,9 +133,9 @@ public class ProductionController {
      */
     @PostMapping("/workbench/generateVideo")
     public R<Map<String, Object>> generateVideo(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
-        Integer scriptId = body.get("scriptId") != null ? ((Number) body.get("scriptId")).intValue() : null;
-        Integer videoTrackId = body.get("videoTrackId") != null ? ((Number) body.get("videoTrackId")).intValue() : null;
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
+        String scriptId = (String) body.get("scriptId") != null ? (String) body.get("scriptId") : null;
+        String videoTrackId = (String) body.get("videoTrackId") != null ? (String) body.get("videoTrackId") : null;
         String prompt = (String) body.getOrDefault("prompt", "");
 
         // 创建视频记录，状态为生成中
@@ -158,13 +156,13 @@ public class ProductionController {
     public R<Map<String, String>> batchGenerateVideo(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> tasks = (List<Map<String, Object>>) body.get("tasks");
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
         if (tasks != null) {
             for (Map<String, Object> t : tasks) {
                 OVideo video = new OVideo();
                 video.setProjectId(projectId);
-                video.setScriptId((Integer) t.get("scriptId"));
-                video.setVideoTrackId((Integer) t.get("videoTrackId"));
+                video.setScriptId((String) t.get("scriptId"));
+                video.setVideoTrackId((String) t.get("videoTrackId"));
                 video.setState("生成中");
                 video.setTime(System.currentTimeMillis());
                 videoMapper.insert(video);
@@ -179,7 +177,7 @@ public class ProductionController {
 
     @PostMapping("/editImage/getImageFlow")
     public R<OImageFlow> getImageFlow(@RequestBody Map<String, Object> body) {
-        return R.ok(imageFlowMapper.selectById(body.get("id") != null ? ((Number) body.get("id")).intValue() : null));
+        return R.ok(imageFlowMapper.selectById(body.get("id") != null ? (String) body.get("id") : null));
     }
 
     @PostMapping("/editImage/saveImageFlow")
@@ -217,11 +215,11 @@ public class ProductionController {
      */
     @PostMapping("/editImage/generateFlowImage")
     public R<Map<String, Object>> generateFlowImage(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
         String prompt = (String) body.getOrDefault("prompt", "");
         String model = (String) body.get("model");
         String ratio = (String) body.getOrDefault("ratio", "1:1");
-        Integer taskId = taskRecordService.start(projectId, "流程图片生成", model, prompt, null);
+        String taskId = taskRecordService.start(projectId, "流程图片生成", model, prompt, null);
         try {
             String url = mediaGenerationService.generateImage(model, prompt, resolveSize(ratio));
             taskRecordService.done(taskId);
@@ -281,9 +279,9 @@ public class ProductionController {
      */
     @PostMapping("/assets/updateAssetsUrl")
     public R<Map<String, String>> updateAssetsUrl(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
+        String id = (String) body.get("id");
         String url = (String) body.get("url");
-        Integer flowId = body.get("flowId") != null ? ((Number) body.get("flowId")).intValue() : null;
+        String flowId = (String) body.get("flowId");
 
         com.toonflow.entity.OImage image = new com.toonflow.entity.OImage();
         image.setFilePath(url);
@@ -305,7 +303,7 @@ public class ProductionController {
      */
     @PostMapping("/assets/pollingImage")
     public R<List<Map<String, Object>>> pollingProductionAssets(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         List<com.toonflow.entity.OAssets> assetsList = assetsMapper.selectList(
                 new LambdaQueryWrapper<com.toonflow.entity.OAssets>().in(com.toonflow.entity.OAssets::getId, ids));
@@ -331,7 +329,7 @@ public class ProductionController {
      */
     @PostMapping("/assets/deleteAssetsDireve")
     public R<Map<String, String>> deleteAssetsDireve(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
+        String id = (String) body.get("id") != null ? (String) body.get("id") : null;
         com.toonflow.entity.OAssets asset = assetsMapper.selectById(id);
         if (asset == null) throw new com.toonflow.common.exception.BusinessException("资源未找到");
         if (asset.getFlowId() != null) imageFlowMapper.deleteById(asset.getFlowId());
@@ -347,14 +345,12 @@ public class ProductionController {
      */
     @PostMapping("/assets/batchGenerateAssetsImage")
     public R<Map<String, String>> batchGenerateAssetsImage(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked")
-        List<Number> raw_assetIds = (List<Number>) body.get("assetIds");
-        List<Integer> assetIds = raw_assetIds != null ? raw_assetIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        @SuppressWarnings("unchecked") List<String> assetIds = (List<String>) body.get("assetIds");
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
         if (assetIds == null || assetIds.isEmpty()) {
             throw new com.toonflow.common.exception.BusinessException("assetIds不能为空");
         }
-        OProject project = projectMapper.selectById(projectId.longValue());
+        OProject project = projectMapper.selectById(projectId);
         String imageModel = project != null ? project.getImageModel() : null;
         String size = resolveSize(project != null ? project.getVideoRatio() : "16:9");
 
@@ -368,8 +364,8 @@ public class ProductionController {
 
     @org.springframework.scheduling.annotation.Async
     public void asyncGenerateAssetImage(com.toonflow.entity.OAssets asset, String imageModel,
-                                         String size, Integer projectId) {
-        Integer taskId = taskRecordService.start(projectId, "素材图片生成", imageModel,
+                                         String size, String projectId) {
+        String taskId = taskRecordService.start(projectId, "素材图片生成", imageModel,
                 "素材#" + asset.getId(), null);
         try {
             String url = mediaGenerationService.generateImage(imageModel, asset.getPrompt(), size);
@@ -394,7 +390,7 @@ public class ProductionController {
      */
     @PostMapping("/workbench/generateVideoPrompt")
     public R<Map<String, String>> generateVideoPrompt(@RequestBody Map<String, Object> body) {
-        Integer trackId = body.get("trackId") != null ? ((Number) body.get("trackId")).intValue() : null;
+        String trackId = (String) body.get("trackId") != null ? (String) body.get("trackId") : null;
         String desc = (String) body.getOrDefault("desc", "");
         try {
             String prompt = aiService.generateText("universalAi", List.of(

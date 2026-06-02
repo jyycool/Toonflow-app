@@ -86,7 +86,7 @@ public class DbInitConfig implements ApplicationRunner {
         // 项目表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_project (
-                id INTEGER PRIMARY KEY,
+                id TEXT PRIMARY KEY,
                 projectType TEXT,
                 imageModel TEXT,
                 imageQuality TEXT,
@@ -104,8 +104,8 @@ public class DbInitConfig implements ApplicationRunner {
         // 原文表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_novel (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                projectId INTEGER,
+                id TEXT PRIMARY KEY,
+                projectId TEXT,
                 chapterIndex INTEGER,
                 reel TEXT,
                 chapter TEXT,
@@ -118,10 +118,10 @@ public class DbInitConfig implements ApplicationRunner {
         // 剧本表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_script (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 name TEXT,
                 content TEXT,
-                projectId INTEGER,
+                projectId TEXT,
                 createTime INTEGER,
                 extractState INTEGER,
                 errorReason TEXT
@@ -129,12 +129,12 @@ public class DbInitConfig implements ApplicationRunner {
         // 素材表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_assets (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                projectId INTEGER,
-                scriptId INTEGER,
-                flowId INTEGER,
-                assetsId INTEGER,
-                imageId INTEGER,
+                id TEXT PRIMARY KEY,
+                projectId TEXT,
+                scriptId TEXT,
+                flowId TEXT,
+                assetsId TEXT,
+                imageId TEXT,
                 name TEXT,
                 type TEXT,
                 describe TEXT,
@@ -148,11 +148,11 @@ public class DbInitConfig implements ApplicationRunner {
         // 分镜表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_storyboard (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                projectId INTEGER,
-                scriptId INTEGER,
-                flowId INTEGER,
-                trackId INTEGER,
+                id TEXT PRIMARY KEY,
+                projectId TEXT,
+                scriptId TEXT,
+                flowId TEXT,
+                trackId TEXT,
                 idx INTEGER,
                 prompt TEXT,
                 state TEXT,
@@ -167,8 +167,8 @@ public class DbInitConfig implements ApplicationRunner {
         // 图片表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_image (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                assetsId INTEGER,
+                id TEXT PRIMARY KEY,
+                assetsId TEXT,
                 filePath TEXT,
                 state TEXT,
                 model TEXT,
@@ -179,10 +179,10 @@ public class DbInitConfig implements ApplicationRunner {
         // 视频表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_video (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                projectId INTEGER,
-                scriptId INTEGER,
-                videoTrackId INTEGER,
+                id TEXT PRIMARY KEY,
+                projectId TEXT,
+                scriptId TEXT,
+                videoTrackId TEXT,
                 filePath TEXT,
                 state TEXT,
                 time INTEGER,
@@ -191,11 +191,11 @@ public class DbInitConfig implements ApplicationRunner {
         // 视频轨道表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_videoTrack (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                projectId INTEGER,
-                scriptId INTEGER,
-                videoId INTEGER,
-                selectVideoId INTEGER,
+                id TEXT PRIMARY KEY,
+                projectId TEXT,
+                scriptId TEXT,
+                videoId TEXT,
+                selectVideoId TEXT,
                 prompt TEXT,
                 state TEXT,
                 reason TEXT,
@@ -204,7 +204,7 @@ public class DbInitConfig implements ApplicationRunner {
         // 风格表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_artStyle (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 name TEXT,
                 fileUrl TEXT,
                 label TEXT,
@@ -213,7 +213,7 @@ public class DbInitConfig implements ApplicationRunner {
         // Agent配置表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_agentDeploy (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 key TEXT,
                 model TEXT,
                 modelName TEXT,
@@ -229,9 +229,9 @@ public class DbInitConfig implements ApplicationRunner {
         // Agent工作数据表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_agentWorkData (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                projectId INTEGER,
-                episodesId INTEGER,
+                id TEXT PRIMARY KEY,
+                projectId TEXT,
+                episodesId TEXT,
                 key TEXT,
                 data TEXT,
                 createTime INTEGER,
@@ -240,7 +240,7 @@ public class DbInitConfig implements ApplicationRunner {
         // 提示词表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_prompt (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 name TEXT,
                 type TEXT,
                 data TEXT,
@@ -249,7 +249,7 @@ public class DbInitConfig implements ApplicationRunner {
         // 模型提示词绑定表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_modelPrompt (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 vendorId TEXT,
                 model TEXT,
                 prompt TEXT,
@@ -273,8 +273,8 @@ public class DbInitConfig implements ApplicationRunner {
         // 任务表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                projectId INTEGER,
+                id TEXT PRIMARY KEY,
+                projectId TEXT,
                 state TEXT,
                 model TEXT,
                 taskClass TEXT,
@@ -286,7 +286,7 @@ public class DbInitConfig implements ApplicationRunner {
         // 事件表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_event (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 name TEXT,
                 detail TEXT,
                 createTime INTEGER
@@ -294,42 +294,42 @@ public class DbInitConfig implements ApplicationRunner {
         // 事件章节表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_eventChapter (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                eventId INTEGER,
-                novelId INTEGER
+                id TEXT PRIMARY KEY,
+                eventId TEXT,
+                novelId TEXT
             )""");
         // 大纲表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_outline (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                projectId INTEGER,
+                id TEXT PRIMARY KEY,
+                projectId TEXT,
                 episode INTEGER,
                 data TEXT
             )""");
         // 大纲-原文关联表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_outlineNovel (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                outlineId INTEGER,
-                novelId INTEGER
+                id TEXT PRIMARY KEY,
+                outlineId TEXT,
+                novelId TEXT
             )""");
         // 图片流程表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_imageFlow (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id TEXT PRIMARY KEY,
                 flowData TEXT
             )""");
         // 素材-分镜关联表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_assets2Storyboard (
-                assetId INTEGER,
-                storyboardId INTEGER
+                assetId TEXT,
+                storyboardId TEXT
             )""");
         // 剧本-素材关联表
         jdbcTemplate.execute("""
             CREATE TABLE IF NOT EXISTS o_scriptAssets (
-                scriptId INTEGER,
-                assetId INTEGER
+                scriptId TEXT,
+                assetId TEXT
             )""");
         // 角色-音频关联表
         jdbcTemplate.execute("""

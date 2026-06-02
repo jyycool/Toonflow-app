@@ -8,7 +8,7 @@ import lombok.Data;
 @Data
 @TableName("o_imageFlow")
 public class OImageFlow {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
     private String flowData;
 }

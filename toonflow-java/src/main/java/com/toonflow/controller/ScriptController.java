@@ -31,15 +31,15 @@ public class ScriptController {
         OScript script = new OScript();
         script.setName(req.getName());
         script.setContent(req.getContent());
-        script.setProjectId(req.getProjectId());
+        script.setProjectId(req.getProjectId() != null ? req.getProjectId().toString() : null);
         script.setCreateTime(System.currentTimeMillis());
         scriptMapper.insert(script);
 
         if (req.getAssets() != null && !req.getAssets().isEmpty()) {
-            for (Integer assetId : req.getAssets()) {
+            for (Object assetIdRaw : req.getAssets()) {
                 OScriptAssets sa = new OScriptAssets();
                 sa.setScriptId(script.getId());
-                sa.setAssetId(assetId);
+                sa.setAssetId(assetIdRaw != null ? assetIdRaw.toString() : null);
                 scriptAssetsMapper.insert(sa);
             }
         }
@@ -54,7 +54,7 @@ public class ScriptController {
 
     @PostMapping("/getScrptApi")
     public R<List<OScript>> getScript(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
         List<OScript> list = scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>()
                         .eq(OScript::getProjectId, projectId)
@@ -70,7 +70,7 @@ public class ScriptController {
 
     @PostMapping("/delScript")
     public R<Map<String, String>> delScript(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
+        String id = (String) body.get("id") != null ? (String) body.get("id") : null;
         if (id == null) throw new BusinessException("id不能为空");
         scriptMapper.deleteById(id);
         scriptAssetsMapper.delete(new LambdaQueryWrapper<OScriptAssets>().eq(OScriptAssets::getScriptId, id));
@@ -83,7 +83,7 @@ public class ScriptController {
     @PostMapping("/exportScript")
     public void exportScript(@RequestBody Map<String, Object> body,
                              jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
-        @SuppressWarnings("unchecked") List<Integer> ids = body.get("id") != null ? ((List<Number>) body.get("id")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("id");
         if (ids == null || ids.isEmpty()) throw new BusinessException("id不能为空");
         List<OScript> scripts = scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>().in(OScript::getId, ids));
@@ -108,11 +108,9 @@ public class ScriptController {
      */
     @PostMapping("/extractAssets")
     public R<Map<String, String>> extractAssets(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked")
-        List<Number> raw_scriptIds = (List<Number>) body.get("scriptIds");
-        List<Integer> scriptIds = raw_scriptIds != null ? raw_scriptIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        @SuppressWarnings("unchecked") List<String> scriptIds = (List<String>) body.get("scriptIds");
         if (scriptIds != null) {
-            for (Integer id : scriptIds) {
+            for (String id : scriptIds) {
                 OScript script = scriptMapper.selectById(id);
                 if (script != null) {
                     script.setExtractState(0);
@@ -151,7 +149,7 @@ public class ScriptController {
      */
     @PostMapping("/pollScriptAssets")
     public R<List<OScript>> pollScriptAssets(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>()
@@ -165,6 +163,6 @@ public class ScriptController {
         @NotBlank private String name;
         @NotNull private String content;
         @NotNull private Integer projectId;
-        @NotNull private List<Integer> assets;
+        private List<Object> assets;
     }
 }

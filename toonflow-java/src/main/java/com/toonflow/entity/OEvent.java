@@ -8,8 +8,8 @@ import lombok.Data;
 @Data
 @TableName("o_event")
 public class OEvent {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
     private String name;
     private String detail;
     private Long createTime;

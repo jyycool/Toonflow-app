@@ -8,8 +8,8 @@ import lombok.Data;
 @Data
 @TableName("o_eventChapter")
 public class OEventChapter {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
-    private Integer eventId;
-    private Integer novelId;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
+    private String eventId;
+    private String novelId;
 }

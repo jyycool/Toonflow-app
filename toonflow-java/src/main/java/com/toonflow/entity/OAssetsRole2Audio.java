@@ -6,6 +6,6 @@ import lombok.Data;
 @Data
 @TableName("o_assetsRole2Audio")
 public class OAssetsRole2Audio {
-    private Integer assetsRoleId;
-    private Integer assetsAudioId;
+    private String assetsRoleId;
+    private String assetsAudioId;
 }

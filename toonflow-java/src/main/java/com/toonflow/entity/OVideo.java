@@ -8,11 +8,11 @@ import lombok.Data;
 @Data
 @TableName("o_video")
 public class OVideo {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
-    private Integer projectId;
-    private Integer scriptId;
-    private Integer videoTrackId;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
+    private String projectId;
+    private String scriptId;
+    private String videoTrackId;
     private String filePath;
     private String state;
     private Long time;

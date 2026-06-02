@@ -8,13 +8,13 @@ import lombok.Data;
 @Data
 @TableName("o_assets")
 public class OAssets {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
-    private Integer projectId;
-    private Integer scriptId;
-    private Integer flowId;
-    private Integer assetsId;
-    private Integer imageId;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
+    private String projectId;
+    private String scriptId;
+    private String flowId;
+    private String assetsId;
+    private String imageId;
     private String name;
     private String type;
     private String describe;

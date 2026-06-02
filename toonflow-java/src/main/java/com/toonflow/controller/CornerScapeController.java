@@ -16,11 +16,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * 角落场景（cornerScape）控制器
- * 对应原项目 routes/cornerScape/*
- * 主要处理素材与音频绑定相关的展示数据。
- */
 @RestController
 @RequestMapping("/api/cornerScape")
 @RequiredArgsConstructor
@@ -30,12 +25,9 @@ public class CornerScapeController {
     private final OImageMapper imageMapper;
     private final OAssetsRole2AudioMapper role2AudioMapper;
 
-    /**
-     * 获取全部素材（联查图片信息，排除 clip/audio，仅顶层素材）
-     */
     @PostMapping("/getAllAssets")
     public R<List<Map<String, Object>>> getAllAssets(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         @SuppressWarnings("unchecked")
         List<String> types = (List<String>) body.get("type");
 
@@ -49,7 +41,6 @@ public class CornerScapeController {
         }
         List<OAssets> assets = assetsMapper.selectList(wrapper);
 
-        // 按 role > scene > tool > 其他 排序，并联查图片
         List<Map<String, Object>> result = assets.stream()
                 .sorted(Comparator.comparingInt(a -> typeOrder(a.getType())))
                 .map(a -> {
@@ -86,15 +77,11 @@ public class CornerScapeController {
         };
     }
 
-    /**
-     * 更新角色绑定的音频（一个角色仅可绑定一个音色）
-     */
     @PostMapping("/updateAssetsAudio")
     public R<Map<String, String>> updateAssetsAudio(@RequestBody Map<String, Object> body) {
-        Integer assetsId = body.get("assetsId") != null ? ((Number) body.get("assetsId")).intValue() : null;
+        String assetsId = body.get("assetsId") != null ? body.get("assetsId").toString() : null;
         @SuppressWarnings("unchecked")
-        List<Number> raw_audioIds = (List<Number>) body.get("audioIds");
-        List<Integer> audioIds = raw_audioIds != null ? raw_audioIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        List<String> audioIds = (List<String>) body.get("audioIds");
         if (audioIds != null && audioIds.size() > 1) {
             throw new com.toonflow.common.exception.BusinessException("仅可绑定一个音色");
         }
@@ -109,12 +96,9 @@ public class CornerScapeController {
         return R.ok(Map.of("message", "更新音频成功"));
     }
 
-    /**
-     * 轮询音频绑定状态（排除"生成中"）
-     */
     @PostMapping("/pollingAudio")
     public R<List<OAssets>> pollingAudio(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>()
@@ -122,15 +106,11 @@ public class CornerScapeController {
                         .ne(OAssets::getAudioBindState, 1)));
     }
 
-    /**
-     * 批量绑定音频（标记为绑定中，由后台 AI 匹配音色）
-     */
     @PostMapping("/batchBindAudio")
     public R<Map<String, String>> batchBindAudio(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         @SuppressWarnings("unchecked")
-        List<Number> raw_assetsIds = (List<Number>) body.get("assetsIds");
-        List<Integer> assetsIds = raw_assetsIds != null ? raw_assetsIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        List<String> assetsIds = (List<String>) body.get("assetsIds");
 
         List<OAssets> audioData = assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>()
@@ -141,7 +121,7 @@ public class CornerScapeController {
             throw new com.toonflow.common.exception.BusinessException("暂无设置音频，请先前往资产中心上传音频");
         }
         if (assetsIds != null) {
-            for (Integer id : assetsIds) {
+            for (String id : assetsIds) {
                 OAssets asset = assetsMapper.selectById(id);
                 if (asset != null) {
                     asset.setAudioBindState(1);

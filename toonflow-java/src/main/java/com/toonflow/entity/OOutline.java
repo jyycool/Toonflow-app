@@ -8,9 +8,9 @@ import lombok.Data;
 @Data
 @TableName("o_outline")
 public class OOutline {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
-    private Integer projectId;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
+    private String projectId;
     private Integer episode;
     private String data;
 }

@@ -9,12 +9,12 @@ import lombok.Data;
 @Data
 @TableName("o_storyboard")
 public class OStoryboard {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
-    private Integer projectId;
-    private Integer scriptId;
-    private Integer flowId;
-    private Integer trackId;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
+    private String projectId;
+    private String scriptId;
+    private String flowId;
+    private String trackId;
     // 建表列名为 idx（规避 SQL 保留字 index）
     @TableField("idx")
     private Integer index;

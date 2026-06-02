@@ -24,9 +24,9 @@ public class ScriptAgentTools {
 
     private final ONovelMapper novelMapper;
     private final OScriptMapper scriptMapper;
-    private final Long projectId;
+    private final String projectId;
 
-    public ScriptAgentTools(ONovelMapper novelMapper, OScriptMapper scriptMapper, Long projectId) {
+    public ScriptAgentTools(ONovelMapper novelMapper, OScriptMapper scriptMapper, String projectId) {
         this.novelMapper = novelMapper;
         this.scriptMapper = scriptMapper;
         this.projectId = projectId;
@@ -81,7 +81,7 @@ public class ScriptAgentTools {
         OScript script = new OScript();
         script.setName(name);
         script.setContent(content);
-        script.setProjectId(projectId.intValue());
+        script.setProjectId(projectId);
         script.setCreateTime(System.currentTimeMillis());
         scriptMapper.insert(script);
         return "剧本《" + name + "》已保存，id=" + script.getId();

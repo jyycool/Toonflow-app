@@ -137,7 +137,7 @@ public class AgentController {
         if (row == null) {
             // Insert default record
             OAgentWorkData newRow = new OAgentWorkData();
-            newRow.setProjectId(toInteger(projectId));
+            newRow.setProjectId(projectId != null ? projectId.toString() : null);
             newRow.setKey(agentType);
             Map<String, Object> defaultData = new LinkedHashMap<>();
             defaultData.put("storySkeleton", "");
@@ -165,7 +165,7 @@ public class AgentController {
             // Fetch script rows
             List<OScript> scripts = scriptMapper.selectList(
                     new LambdaQueryWrapper<OScript>()
-                            .eq(OScript::getProjectId, toInteger(projectId))
+                            .eq(OScript::getProjectId, projectId != null ? projectId.toString() : null)
                             .select(OScript::getId, OScript::getName, OScript::getContent));
 
             List<Map<String, Object>> scriptList = new ArrayList<>();
@@ -221,7 +221,7 @@ public class AgentController {
 
         if (existing == null) {
             OAgentWorkData newRow = new OAgentWorkData();
-            newRow.setProjectId(toInteger(projectId));
+            newRow.setProjectId(projectId != null ? projectId.toString() : null);
             newRow.setKey(agentType);
             newRow.setData(dataJson);
             newRow.setCreateTime(System.currentTimeMillis());
@@ -236,7 +236,7 @@ public class AgentController {
         // Update o_script entries by id
         if (scriptItems != null) {
             for (Map<String, Object> s : scriptItems) {
-                Integer scriptId = toInteger(s.get("id"));
+                String scriptId = (String) s.get("id");
                 String content = (String) s.get("content");
                 if (scriptId != null) {
                     OScript scriptRow = scriptMapper.selectById(scriptId);
@@ -253,7 +253,7 @@ public class AgentController {
 
     @PostMapping("/api/scriptAgent/updateData")
     public R<String> updateData(@RequestBody Map<String, Object> body) {
-        Integer id = toInteger(body.get("id"));
+        String id = (String) body.get("id");
         Object data = body.get("data");
         OAgentWorkData work = agentWorkDataMapper.selectById(id);
         if (work == null) throw new BusinessException("工作数据不存在");
@@ -279,10 +279,5 @@ public class AgentController {
                 .map(chunk -> "data: " + chunk + "\n\n");
     }
 
-    private Integer toInteger(Object val) {
-        if (val == null) return null;
-        if (val instanceof Integer) return (Integer) val;
-        if (val instanceof Number) return ((Number) val).intValue();
-        return Integer.parseInt(val.toString());
-    }
 }
+

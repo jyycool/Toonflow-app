@@ -8,8 +8,8 @@ import lombok.Data;
 @Data
 @TableName("o_project")
 public class OProject {
-    @TableId(type = IdType.INPUT)
-    private Long id;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
     private String projectType;
     private String imageModel;
     private String imageQuality;

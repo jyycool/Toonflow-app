@@ -8,9 +8,9 @@ import lombok.Data;
 @Data
 @TableName("o_novel")
 public class ONovel {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
-    private Integer projectId;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
+    private String projectId;
     private Integer chapterIndex;
     private String reel;
     private String chapter;

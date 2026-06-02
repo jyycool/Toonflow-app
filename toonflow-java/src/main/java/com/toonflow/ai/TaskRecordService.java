@@ -26,7 +26,7 @@ public class TaskRecordService {
     /**
      * 创建任务记录，返回任务 id
      */
-    public Integer start(Integer projectId, String taskClass, String modelName, String describe, Object content) {
+    public String start(String projectId, String taskClass, String modelName, String describe, Object content) {
         OTasks task = new OTasks();
         task.setProjectId(projectId);
         task.setTaskClass(taskClass);
@@ -36,13 +36,13 @@ public class TaskRecordService {
         task.setStartTime(System.currentTimeMillis());
         task.setRelatedObjects(serializeContent(content));
         tasksMapper.insert(task);
-        return task.getId();
+        return task.getId() != null ? task.getId() : null;
     }
 
     /**
      * 标记任务成功
      */
-    public void done(Integer taskId) {
+    public void done(String taskId) {
         OTasks task = tasksMapper.selectById(taskId);
         if (task != null) {
             task.setState(STATE_DONE);
@@ -54,7 +54,7 @@ public class TaskRecordService {
     /**
      * 标记任务失败
      */
-    public void fail(Integer taskId, String reason) {
+    public void fail(String taskId, String reason) {
         OTasks task = tasksMapper.selectById(taskId);
         if (task != null) {
             task.setState(STATE_FAILED);

@@ -26,7 +26,7 @@ public class GeneralController {
 
     @PostMapping("/general/generalStatistics")
     public R<Map<String, Object>> generalStatistics(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         Map<String, Object> stats = new HashMap<>();
         stats.put("novelCount", novelMapper.selectCount(
                 new LambdaQueryWrapper<ONovel>().eq(ONovel::getProjectId, projectId)));
@@ -42,8 +42,9 @@ public class GeneralController {
     }
 
     @PostMapping("/general/getSingleProject")
-    public R<OProject> getSingleProject(@RequestBody Map<String, Long> body) {
-        return R.ok(projectMapper.selectById(body.get("id")));
+    public R<OProject> getSingleProject(@RequestBody Map<String, Object> body) {
+        String id = body.get("id") != null ? body.get("id").toString() : null;
+        return R.ok(projectMapper.selectById(id));
     }
 
     @PostMapping("/general/updateProject")
@@ -58,8 +59,8 @@ public class GeneralController {
     }
 
     @PostMapping("/other/deleteAllData")
-    public R<Map<String, String>> deleteAllData(@RequestBody Map<String, Long> body) {
-        Long projectId = body.get("projectId");
+    public R<Map<String, String>> deleteAllData(@RequestBody Map<String, Object> body) {
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         if (projectId != null) {
             novelMapper.delete(new LambdaQueryWrapper<ONovel>().eq(ONovel::getProjectId, projectId));
             scriptMapper.delete(new LambdaQueryWrapper<OScript>().eq(OScript::getProjectId, projectId));
@@ -89,7 +90,7 @@ public class GeneralController {
 
     @PostMapping("/task/getTaskApi")
     public R<Object> getTaskApi(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         return R.ok(tasksMapper.selectList(
                 new LambdaQueryWrapper<OTasks>().eq(OTasks::getProjectId, projectId)
                         .orderByDesc(OTasks::getStartTime)));
@@ -109,6 +110,7 @@ public class GeneralController {
 
     @PostMapping("/task/taskDetails")
     public R<OTasks> taskDetails(@RequestBody Map<String, Object> body) {
-        return R.ok(tasksMapper.selectById(body.get("id") != null ? ((Number) body.get("id")).intValue() : null));
+        String id = body.get("id") != null ? body.get("id").toString() : null;
+        return R.ok(tasksMapper.selectById(id));
     }
 }

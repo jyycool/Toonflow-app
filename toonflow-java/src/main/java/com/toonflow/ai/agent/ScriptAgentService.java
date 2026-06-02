@@ -64,7 +64,7 @@ public class ScriptAgentService {
         StringBuilder fullResponse = new StringBuilder();
 
         // 绑定当前会话的工具集，供大模型自主调用
-        ScriptAgentTools tools = new ScriptAgentTools(novelMapper, scriptMapper, projectId);
+        ScriptAgentTools tools = new ScriptAgentTools(novelMapper, scriptMapper, String.valueOf(projectId));
 
         aiService.streamTextWithTools(AGENT_TYPE + ":decisionAgent", messages, tools)
                 .subscribe(

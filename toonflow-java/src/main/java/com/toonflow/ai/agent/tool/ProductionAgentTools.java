@@ -30,14 +30,14 @@ public class ProductionAgentTools {
     private final OStoryboardMapper storyboardMapper;
     private final OImageFlowMapper imageFlowMapper;
     private final MediaGenerationService mediaGenerationService;
-    private final Long projectId;
-    private final Integer scriptId;
+    private final String projectId;
+    private final String scriptId;
     private final String imageModel;
 
     public ProductionAgentTools(OAssetsMapper assetsMapper, OScriptAssetsMapper scriptAssetsMapper,
                                 OStoryboardMapper storyboardMapper, OImageFlowMapper imageFlowMapper,
                                 MediaGenerationService mediaGenerationService,
-                                Long projectId, Integer scriptId, String imageModel) {
+                                String projectId, String scriptId, String imageModel) {
         this.assetsMapper = assetsMapper;
         this.scriptAssetsMapper = scriptAssetsMapper;
         this.storyboardMapper = storyboardMapper;
@@ -49,7 +49,7 @@ public class ProductionAgentTools {
     }
 
     @Tool(description = "获取图片流程数据")
-    public String getFlowData(@ToolParam(description = "流程 id") Integer flowId) {
+    public String getFlowData(@ToolParam(description = "流程 id") String flowId) {
         log.info("[tool] getFlowData {}", flowId);
         OImageFlow flow = imageFlowMapper.selectById(flowId);
         return flow != null && flow.getFlowData() != null ? flow.getFlowData() : "无数据";
@@ -57,8 +57,8 @@ public class ProductionAgentTools {
 
     @Tool(description = "新增或更新衍生资产（id 为空则新增）")
     public String addDeriveAsset(
-            @ToolParam(description = "关联的资产 ID") Integer assetsId,
-            @ToolParam(description = "衍生资产 ID，新增时传 null") Integer id,
+            @ToolParam(description = "关联的资产 ID") String assetsId,
+            @ToolParam(description = "衍生资产 ID，新增时传 null") String id,
             @ToolParam(description = "衍生资产名称") String name,
             @ToolParam(description = "衍生资产描述") String desc) {
         log.info("[tool] addDeriveAsset name={} id={}", name, id);
@@ -77,7 +77,7 @@ public class ProductionAgentTools {
         } else {
             OAssets asset = new OAssets();
             asset.setAssetsId(assetsId);
-            asset.setProjectId(projectId.intValue());
+            asset.setProjectId(projectId);
             asset.setName(name);
             asset.setType(parent.getType());
             asset.setDescribe(desc);
@@ -94,7 +94,7 @@ public class ProductionAgentTools {
 
     @Tool(description = "删除衍生资产")
     public String delDeriveAsset(
-            @ToolParam(description = "衍生资产 ID") Integer id) {
+            @ToolParam(description = "衍生资产 ID") String id) {
         log.info("[tool] delDeriveAsset {}", id);
         assetsMapper.deleteById(id);
         scriptAssetsMapper.delete(new LambdaQueryWrapper<OScriptAssets>()

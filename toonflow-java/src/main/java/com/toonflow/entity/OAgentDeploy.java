@@ -8,8 +8,8 @@ import lombok.Data;
 @Data
 @TableName("o_agentDeploy")
 public class OAgentDeploy {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
     private String key;
     private String model;
     private String modelName;

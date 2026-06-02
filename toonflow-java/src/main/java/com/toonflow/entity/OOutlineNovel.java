@@ -8,8 +8,8 @@ import lombok.Data;
 @Data
 @TableName("o_outlineNovel")
 public class OOutlineNovel {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
-    private Integer outlineId;
-    private Integer novelId;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
+    private String outlineId;
+    private String novelId;
 }

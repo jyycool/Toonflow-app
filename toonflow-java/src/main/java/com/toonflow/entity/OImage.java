@@ -8,9 +8,9 @@ import lombok.Data;
 @Data
 @TableName("o_image")
 public class OImage {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
-    private Integer assetsId;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
+    private String assetsId;
     private String filePath;
     private String state;
     private String model;

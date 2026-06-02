@@ -8,9 +8,9 @@ import lombok.Data;
 @Data
 @TableName("o_tasks")
 public class OTasks {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
-    private Integer projectId;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
+    private String projectId;
     private String state;
     private String model;
     private String taskClass;

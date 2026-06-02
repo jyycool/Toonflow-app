@@ -96,7 +96,7 @@ public class ProductionAgentService {
         String imageModel = project != null ? project.getImageModel() : null;
         ProductionAgentTools tools = new ProductionAgentTools(assetsMapper, scriptAssetsMapper,
                 storyboardMapper, imageFlowMapper, mediaGenerationService,
-                projectId, scriptId, imageModel);
+                String.valueOf(projectId), scriptId != null ? String.valueOf(scriptId) : null, imageModel);
 
         streamAndSave(sessionId, isolationKey, AGENT_TYPE + ":decisionAgent",
                 messages, "assistant:decision", tools);

@@ -8,11 +8,11 @@ import lombok.Data;
 @Data
 @TableName("o_script")
 public class OScript {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
     private String name;
     private String content;
-    private Integer projectId;
+    private String projectId;
     private Long createTime;
     private Integer extractState;
     private String errorReason;

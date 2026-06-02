@@ -32,8 +32,8 @@ public class AssetsController {
 
     @PostMapping("/getAssetsApi")
     public R<List<OAssets>> getAssets(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
-        Integer scriptId = body.get("scriptId") != null ? ((Number) body.get("scriptId")).intValue() : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
         LambdaQueryWrapper<OAssets> wrapper = new LambdaQueryWrapper<OAssets>()
                 .eq(OAssets::getProjectId, projectId);
         if (scriptId != null) wrapper.eq(OAssets::getScriptId, scriptId);
@@ -48,7 +48,7 @@ public class AssetsController {
 
     @PostMapping("/delAssets")
     public R<Map<String, String>> delAssets(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
+        String id = body.get("id") != null ? body.get("id").toString() : null;
         if (id == null) throw new BusinessException("id不能为空");
         assetsMapper.deleteById(id);
         return R.ok(Map.of("message", "删除素材成功"));
@@ -56,7 +56,7 @@ public class AssetsController {
 
     @PostMapping("/batchDelete")
     public R<Map<String, String>> batchDelete(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
         if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
         assetsMapper.deleteBatchIds(ids);
         return R.ok(Map.of("message", "批量删除成功"));
@@ -64,7 +64,7 @@ public class AssetsController {
 
     @PostMapping("/getImage")
     public R<OImage> getImage(@RequestBody Map<String, Object> body) {
-        return R.ok(imageMapper.selectById(body.get("id") != null ? ((Number) body.get("id")).intValue() : null));
+        return R.ok(imageMapper.selectById(body.get("id") != null ? body.get("id").toString() : null));
     }
 
     @PostMapping("/saveAssets")
@@ -80,7 +80,7 @@ public class AssetsController {
 
     @PostMapping("/pollingImageAssets")
     public R<List<OImage>> pollingImageAssets(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(imageMapper.selectList(
                 new LambdaQueryWrapper<OImage>().in(OImage::getId, ids)));
@@ -88,18 +88,15 @@ public class AssetsController {
 
     @PostMapping("/pollingPromptAssets")
     public R<List<OAssets>> pollingPromptAssets(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>().in(OAssets::getId, ids)));
     }
 
-    /**
-     * 新增音频素材（每个 assetsItem 落库为一条 type=audio 的素材）
-     */
     @PostMapping("/addAudioAssets")
     public R<Map<String, String>> addAudioAssets(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("assetsItem");
         if (items != null) {
@@ -123,12 +120,9 @@ public class AssetsController {
         return R.ok(Map.of("message", "更新音频素材成功"));
     }
 
-    /**
-     * 获取素材数据（type=clip，联查图片）
-     */
     @PostMapping("/getMaterialData")
     public R<List<OAssets>> getMaterialData(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         return R.ok(assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>()
                         .eq(OAssets::getProjectId, projectId)
@@ -137,21 +131,21 @@ public class AssetsController {
 
     @PostMapping("/batchGenerationData")
     public R<List<OAssets>> batchGenerationData(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         return R.ok(assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>().eq(OAssets::getProjectId, projectId)));
     }
 
     @PostMapping("/delImage")
     public R<Map<String, String>> delImage(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
+        String id = body.get("id") != null ? body.get("id").toString() : null;
         if (id != null) imageMapper.deleteById(id);
         return R.ok(Map.of("message", "删除图片成功"));
     }
 
     @Data
     public static class BatchGenerationData {
-        @NotNull private Integer projectId;
-        private List<Integer> ids;
+        @NotNull private String projectId;
+        private List<String> ids;
     }
 }

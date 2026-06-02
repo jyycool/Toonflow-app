@@ -42,7 +42,7 @@ public class NovelController {
         List<ONovel> inserted = new ArrayList<>();
         for (AddNovelRequest.NovelItem item : req.getData()) {
             ONovel novel = new ONovel();
-            novel.setProjectId(req.getProjectId());
+            novel.setProjectId(req.getProjectId() != null ? req.getProjectId().toString() : null);
             novel.setChapterIndex(++lastIndex);
             novel.setReel(item.getReel());
             novel.setChapter(item.getChapter());
@@ -64,7 +64,7 @@ public class NovelController {
      */
     @PostMapping("/getNovel")
     public R<Map<String, Object>> getNovel(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
         int page = body.get("page") != null ? ((Number) body.get("page")).intValue() : 1;
         int limit = body.get("limit") != null ? ((Number) body.get("limit")).intValue() : 20;
         String search = (String) body.get("search");
@@ -135,7 +135,7 @@ public class NovelController {
      */
     @PostMapping("/getNovelIndex")
     public R<List<Map<String, Object>>> getNovelIndex(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
         List<ONovel> list = novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>()
                         .eq(ONovel::getProjectId, projectId)
@@ -159,7 +159,7 @@ public class NovelController {
      */
     @PostMapping("/updateNovel")
     public R<Map<String, String>> updateNovel(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
+        String id = (String) body.get("id") != null ? (String) body.get("id") : null;
         if (id == null) throw new BusinessException("id不能为空");
 
         ONovel novel = new ONovel();
@@ -185,7 +185,7 @@ public class NovelController {
 
     @PostMapping("/delNovel")
     public R<Map<String, String>> delNovel(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
+        String id = (String) body.get("id") != null ? (String) body.get("id") : null;
         if (id == null) throw new BusinessException("id不能为空");
         novelMapper.deleteById(id);
         return R.ok(Map.of("message", "删除成功"));
@@ -203,7 +203,7 @@ public class NovelController {
 
     @PostMapping("/getNovelData")
     public R<List<ONovel>> getNovelData(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
         return R.ok(novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>().eq(ONovel::getProjectId, projectId)));
     }
@@ -240,7 +240,7 @@ public class NovelController {
      */
     @PostMapping("/event/getEvent")
     public R<Map<String, Object>> getEvent(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
 
         // Get all novels for this project
         List<ONovel> novels = novelMapper.selectList(
@@ -253,9 +253,9 @@ public class NovelController {
         }
 
         // Map novelId -> chapterIndex
-        Map<Integer, Integer> novelChapterIndexMap = novels.stream()
+        Map<String, Integer> novelChapterIndexMap = novels.stream()
                 .collect(Collectors.toMap(ONovel::getId, ONovel::getChapterIndex));
-        List<Integer> novelIds = new ArrayList<>(novelChapterIndexMap.keySet());
+        List<String> novelIds = new ArrayList<>(novelChapterIndexMap.keySet());
 
         // Get all event chapters for these novels
         List<OEventChapter> eventChapters = eventChapterMapper.selectList(
@@ -267,7 +267,7 @@ public class NovelController {
         }
 
         // Group chapterIndexes by eventId
-        Map<Integer, List<Integer>> eventChapterIndexes = new LinkedHashMap<>();
+        Map<String, List<Integer>> eventChapterIndexes = new LinkedHashMap<>();
         for (OEventChapter ec : eventChapters) {
             Integer chapterIndex = novelChapterIndexMap.get(ec.getNovelId());
             if (chapterIndex != null) {
@@ -275,7 +275,7 @@ public class NovelController {
             }
         }
 
-        List<Integer> eventIds = new ArrayList<>(eventChapterIndexes.keySet());
+        List<String> eventIds = new ArrayList<>(eventChapterIndexes.keySet());
 
         // Get all events
         List<OEvent> events = eventMapper.selectList(
@@ -301,7 +301,7 @@ public class NovelController {
 
     @PostMapping("/event/deletEvent")
     public R<Map<String, String>> deletEvent(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
+        String id = (String) body.get("id") != null ? (String) body.get("id") : null;
         if (id == null) throw new BusinessException("id不能为空");
         eventMapper.deleteById(id);
         eventChapterMapper.delete(new LambdaQueryWrapper<OEventChapter>().eq(OEventChapter::getEventId, id));
@@ -310,7 +310,7 @@ public class NovelController {
 
     @PostMapping("/event/batchDeleteEvent")
     public R<Map<String, String>> batchDeleteEvent(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
         if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
         eventMapper.deleteBatchIds(ids);
         eventChapterMapper.delete(new LambdaQueryWrapper<OEventChapter>().in(OEventChapter::getEventId, ids));

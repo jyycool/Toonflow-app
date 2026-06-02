@@ -8,8 +8,8 @@ import lombok.Data;
 @Data
 @TableName("o_modelPrompt")
 public class OModelPrompt {
-    @TableId(type = IdType.AUTO)
-    private Integer id;
+    @TableId(type = IdType.ASSIGN_UUID)
+    private String id;
     private String vendorId;
     private String model;
     private String prompt;
