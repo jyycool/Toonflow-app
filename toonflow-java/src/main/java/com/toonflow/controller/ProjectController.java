@@ -83,8 +83,8 @@ public class ProjectController {
     }
 
     @PostMapping("/delProject")
-    public R<Map<String, String>> delProject(@RequestBody Map<String, Long> body) {
-        Long id = body.get("id");
+    public R<Map<String, String>> delProject(@RequestBody Map<String, Object> body) {
+        String id = body.get("id") != null ? body.get("id").toString() : null;
         if (id == null) throw new BusinessException("id不能为空");
         projectMapper.deleteById(id);
         return R.ok(Map.of("message", "删除项目成功"));
@@ -437,7 +437,7 @@ public class ProjectController {
 
     @Data
     public static class EditProjectRequest {
-        @NotNull private Long id;
+        @NotNull private String id;
         private String name;
         private String intro;
         private String type;

@@ -37,7 +37,8 @@ public class ProductionController {
 
     @PostMapping("/getFlowData")
     public R<OImageFlow> getFlowData(@RequestBody Map<String, Object> body) {
-        return R.ok(imageFlowMapper.selectById(body.get("id") != null ? (String) body.get("id") : null));
+        String id = body.get("id") != null ? body.get("id").toString() : null;
+        return R.ok(imageFlowMapper.selectById(id));
     }
 
     @PostMapping("/saveFlowData")
@@ -52,7 +53,7 @@ public class ProductionController {
 
     @PostMapping("/getStoryboardData")
     public R<List<OStoryboard>> getStoryboardData(@RequestBody Map<String, Object> body) {
-        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         return R.ok(storyboardMapper.selectList(
                 new LambdaQueryWrapper<OStoryboard>()
                         .eq(OStoryboard::getProjectId, projectId)
@@ -63,7 +64,7 @@ public class ProductionController {
 
     @PostMapping("/workbench/getVideoList")
     public R<List<OVideo>> getVideoList(@RequestBody Map<String, Object> body) {
-        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         return R.ok(videoMapper.selectList(
                 new LambdaQueryWrapper<OVideo>().eq(OVideo::getProjectId, projectId)));
     }
@@ -76,15 +77,17 @@ public class ProductionController {
 
     @PostMapping("/workbench/deleteTrack")
     public R<Map<String, String>> deleteTrack(@RequestBody Map<String, Object> body) {
-        videoTrackMapper.deleteById(body.get("id") != null ? (String) body.get("id") : null);
+        String id = body.get("id") != null ? body.get("id").toString() : null;
+        videoTrackMapper.deleteById(id);
         return R.ok(Map.of("message", "删除轨道成功"));
     }
 
     @PostMapping("/workbench/selectVideo")
     public R<Map<String, String>> selectVideo(@RequestBody Map<String, Object> body) {
-        OVideoTrack track = videoTrackMapper.selectById((String) body.get("trackId"));
+        String trackId = body.get("trackId") != null ? body.get("trackId").toString() : null;
+        OVideoTrack track = videoTrackMapper.selectById(trackId);
         if (track != null) {
-            track.setSelectVideoId(body.get("videoId") != null ? (String) body.get("videoId") : null);
+            track.setSelectVideoId(body.get("videoId") != null ? body.get("videoId").toString() : null);
             videoTrackMapper.updateById(track);
         }
         return R.ok(Map.of("message", "选择视频成功"));
@@ -92,7 +95,8 @@ public class ProductionController {
 
     @PostMapping("/workbench/delVideo")
     public R<Map<String, String>> delVideo(@RequestBody Map<String, Object> body) {
-        videoMapper.deleteById((String) body.get("id"));
+        String id = body.get("id") != null ? body.get("id").toString() : null;
+        videoMapper.deleteById(id);
         return R.ok(Map.of("message", "删除视频成功"));
     }
 
@@ -110,7 +114,7 @@ public class ProductionController {
 
     @PostMapping("/workbench/getGenerateData")
     public R<Map<String, Object>> getGenerateData(@RequestBody Map<String, Object> body) {
-        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         List<OVideoTrack> tracks = videoTrackMapper.selectList(
                 new LambdaQueryWrapper<OVideoTrack>().eq(OVideoTrack::getProjectId, projectId));
         List<OVideo> videos = videoMapper.selectList(
@@ -120,7 +124,8 @@ public class ProductionController {
 
     @PostMapping("/workbench/checkVideoStateList")
     public R<List<OVideo>> checkVideoStateList(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> videoIds = (List<String>) body.get("videoIds");
+        @SuppressWarnings("unchecked")
+        List<String> videoIds = (List<String>) body.get("videoIds");
         if (videoIds == null || videoIds.isEmpty()) return R.ok(List.of());
         return R.ok(videoMapper.selectList(
                 new LambdaQueryWrapper<OVideo>()
@@ -128,17 +133,13 @@ public class ProductionController {
                         .in(OVideo::getState, List.of("生成成功", "生成失败"))));
     }
 
-    /**
-     * 生成视频（异步任务，立即返回，后台执行并更新状态）
-     */
     @PostMapping("/workbench/generateVideo")
     public R<Map<String, Object>> generateVideo(@RequestBody Map<String, Object> body) {
-        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
-        String scriptId = (String) body.get("scriptId") != null ? (String) body.get("scriptId") : null;
-        String videoTrackId = (String) body.get("videoTrackId") != null ? (String) body.get("videoTrackId") : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
+        String videoTrackId = body.get("videoTrackId") != null ? body.get("videoTrackId").toString() : null;
         String prompt = (String) body.getOrDefault("prompt", "");
 
-        // 创建视频记录，状态为生成中
         OVideo video = new OVideo();
         video.setProjectId(projectId);
         video.setScriptId(scriptId);
@@ -156,13 +157,13 @@ public class ProductionController {
     public R<Map<String, String>> batchGenerateVideo(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> tasks = (List<Map<String, Object>>) body.get("tasks");
-        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         if (tasks != null) {
             for (Map<String, Object> t : tasks) {
                 OVideo video = new OVideo();
                 video.setProjectId(projectId);
-                video.setScriptId((String) t.get("scriptId"));
-                video.setVideoTrackId((String) t.get("videoTrackId"));
+                video.setScriptId(t.get("scriptId") != null ? t.get("scriptId").toString() : null);
+                video.setVideoTrackId(t.get("videoTrackId") != null ? t.get("videoTrackId").toString() : null);
                 video.setState("生成中");
                 video.setTime(System.currentTimeMillis());
                 videoMapper.insert(video);
@@ -177,7 +178,8 @@ public class ProductionController {
 
     @PostMapping("/editImage/getImageFlow")
     public R<OImageFlow> getImageFlow(@RequestBody Map<String, Object> body) {
-        return R.ok(imageFlowMapper.selectById(body.get("id") != null ? (String) body.get("id") : null));
+        String id = body.get("id") != null ? body.get("id").toString() : null;
+        return R.ok(imageFlowMapper.selectById(id));
     }
 
     @PostMapping("/editImage/saveImageFlow")
@@ -196,12 +198,10 @@ public class ProductionController {
         return R.ok(Map.of("message", "更新成功"));
     }
 
-    /**
-     * 获取项目默认图片模型与质量
-     */
     @PostMapping("/editImage/getImageDefaultModle")
-    public R<Map<String, Object>> getImageDefaultModle(@RequestBody Map<String, Long> body) {
-        OProject project = projectMapper.selectById(body.get("projectId"));
+    public R<Map<String, Object>> getImageDefaultModle(@RequestBody Map<String, Object> body) {
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        OProject project = projectMapper.selectById(projectId);
         Map<String, Object> result = new java.util.HashMap<>();
         if (project != null) {
             result.put("imageModel", project.getImageModel());
@@ -210,12 +210,9 @@ public class ProductionController {
         return R.ok(result);
     }
 
-    /**
-     * 流程图片生成（异步）
-     */
     @PostMapping("/editImage/generateFlowImage")
     public R<Map<String, Object>> generateFlowImage(@RequestBody Map<String, Object> body) {
-        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         String prompt = (String) body.getOrDefault("prompt", "");
         String model = (String) body.get("model");
         String ratio = (String) body.getOrDefault("ratio", "1:1");
@@ -230,9 +227,6 @@ public class ProductionController {
         }
     }
 
-    /**
-     * 获取分镜/素材的文件地址
-     */
     @PostMapping("/workbench/getFileUrl")
     public R<List<Map<String, Object>>> getFileUrl(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
@@ -241,7 +235,7 @@ public class ProductionController {
         if (items == null) return R.ok(result);
 
         for (Map<String, Object> item : items) {
-            Integer id = (Integer) item.get("id");
+            String id = item.get("id") != null ? item.get("id").toString() : null;
             String sources = (String) item.get("sources");
             Map<String, Object> entry = new java.util.HashMap<>();
             entry.put("id", id);
@@ -274,14 +268,11 @@ public class ProductionController {
 
     // ========== 制作侧素材 ==========
 
-    /**
-     * 更新素材图片地址（新建图片记录并回填到素材）
-     */
     @PostMapping("/assets/updateAssetsUrl")
     public R<Map<String, String>> updateAssetsUrl(@RequestBody Map<String, Object> body) {
-        String id = (String) body.get("id");
+        String id = body.get("id") != null ? body.get("id").toString() : null;
         String url = (String) body.get("url");
-        String flowId = (String) body.get("flowId");
+        String flowId = body.get("flowId") != null ? body.get("flowId").toString() : null;
 
         com.toonflow.entity.OImage image = new com.toonflow.entity.OImage();
         image.setFilePath(url);
@@ -298,9 +289,6 @@ public class ProductionController {
         return R.ok(Map.of("message", "更新成功"));
     }
 
-    /**
-     * 轮询制作侧素材图片生成状态
-     */
     @PostMapping("/assets/pollingImage")
     public R<List<Map<String, Object>>> pollingProductionAssets(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
@@ -324,12 +312,9 @@ public class ProductionController {
         return R.ok(result);
     }
 
-    /**
-     * 删除衍生素材（含关联的图片流程和分镜关联）
-     */
     @PostMapping("/assets/deleteAssetsDireve")
     public R<Map<String, String>> deleteAssetsDireve(@RequestBody Map<String, Object> body) {
-        String id = (String) body.get("id") != null ? (String) body.get("id") : null;
+        String id = body.get("id") != null ? body.get("id").toString() : null;
         com.toonflow.entity.OAssets asset = assetsMapper.selectById(id);
         if (asset == null) throw new com.toonflow.common.exception.BusinessException("资源未找到");
         if (asset.getFlowId() != null) imageFlowMapper.deleteById(asset.getFlowId());
@@ -340,13 +325,11 @@ public class ProductionController {
         return R.ok(Map.of("message", "删除成功"));
     }
 
-    /**
-     * 制作侧批量生成素材图片（异步）
-     */
     @PostMapping("/assets/batchGenerateAssetsImage")
     public R<Map<String, String>> batchGenerateAssetsImage(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> assetIds = (List<String>) body.get("assetIds");
-        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
+        @SuppressWarnings("unchecked")
+        List<String> assetIds = (List<String>) body.get("assetIds");
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         if (assetIds == null || assetIds.isEmpty()) {
             throw new com.toonflow.common.exception.BusinessException("assetIds不能为空");
         }
@@ -383,14 +366,11 @@ public class ProductionController {
         }
     }
 
-    // ========== 工作台：音频绑定列表 ==========
+    // ========== 工作台：视频提示词 ==========
 
-    /**
-     * 生成视频提示词（AI 根据画面描述生成）
-     */
     @PostMapping("/workbench/generateVideoPrompt")
     public R<Map<String, String>> generateVideoPrompt(@RequestBody Map<String, Object> body) {
-        String trackId = (String) body.get("trackId") != null ? (String) body.get("trackId") : null;
+        String trackId = body.get("trackId") != null ? body.get("trackId").toString() : null;
         String desc = (String) body.getOrDefault("desc", "");
         try {
             String prompt = aiService.generateText("universalAi", List.of(
@@ -413,10 +393,9 @@ public class ProductionController {
     @PostMapping("/workbench/batchGeneratePrompt")
     public R<Map<String, String>> batchGeneratePrompt(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<Number> raw_trackIds = (List<Number>) body.get("trackIds");
-        List<Integer> trackIds = raw_trackIds != null ? raw_trackIds.stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        List<String> trackIds = (List<String>) body.get("trackIds");
         if (trackIds != null) {
-            for (Integer trackId : trackIds) {
+            for (String trackId : trackIds) {
                 OVideoTrack track = videoTrackMapper.selectById(trackId);
                 if (track == null) continue;
                 try {
@@ -435,7 +414,7 @@ public class ProductionController {
 
     @PostMapping("/workbench/getAudioBindAssetsList")
     public R<List<Map<String, Object>>> getAudioBindAssetsList(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<Integer> assetsIds = body.get("assetsIds") != null ? ((List<Number>) body.get("assetsIds")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
+        @SuppressWarnings("unchecked") List<String> assetsIds = (List<String>) body.get("assetsIds");
         if (assetsIds == null || assetsIds.isEmpty()) return R.ok(List.of());
 
         List<com.toonflow.entity.OAssetsRole2Audio> binds = role2AudioMapper.selectList(

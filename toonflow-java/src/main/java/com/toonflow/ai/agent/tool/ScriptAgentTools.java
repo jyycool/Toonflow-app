@@ -12,13 +12,6 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import java.util.List;
 import java.util.stream.Collectors;
 
-/**
- * 剧本 Agent 工具集
- * 对应原项目 src/agents/scriptAgent/tools.ts
- *
- * 通过 Spring AI @Tool 注解暴露给大模型自主调用。
- * 每个工具绑定到当前会话的 projectId（构造时注入）。
- */
 @Slf4j
 public class ScriptAgentTools {
 
@@ -62,7 +55,7 @@ public class ScriptAgentTools {
 
     @Tool(description = "根据剧本 id 列表获取剧本内容")
     public String getScriptContent(
-            @ToolParam(description = "剧本 id 列表") List<Integer> ids) {
+            @ToolParam(description = "剧本 id 列表") List<String> ids) {
         log.info("[tool] getScriptContent {}", ids);
         if (ids == null || ids.isEmpty()) return "无数据";
         List<OScript> scripts = scriptMapper.selectList(

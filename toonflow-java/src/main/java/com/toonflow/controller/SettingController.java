@@ -395,7 +395,7 @@ public class SettingController {
     public R<Integer> updatePrompt(@RequestBody Map<String, Object> body) {
         Object idObj = body.get("id");
         if (idObj == null) return R.fail("id不能为空");
-        Integer id = idObj instanceof Integer ? (Integer) idObj : Integer.parseInt(idObj.toString());
+        String id = idObj.toString();
         OPrompt prompt = promptMapper.selectById(id);
         if (prompt == null) return R.fail("提示词不存在");
         prompt.setUseData(body.get("data") != null ? body.get("data").toString() : null);

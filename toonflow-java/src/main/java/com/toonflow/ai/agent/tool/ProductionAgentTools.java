@@ -16,12 +16,6 @@ import org.springframework.ai.tool.annotation.ToolParam;
 
 import java.util.List;
 
-/**
- * 制作 Agent 工具集
- * 对应原项目 src/agents/productionAgent/tools.ts
- *
- * 提供衍生资产的增删、图片生成、分镜生成等操作给大模型自主调用。
- */
 @Slf4j
 public class ProductionAgentTools {
 
@@ -105,11 +99,11 @@ public class ProductionAgentTools {
 
     @Tool(description = "生成衍生资产图片")
     public String generateDeriveAsset(
-            @ToolParam(description = "需要生成的衍生资产 ID 列表") List<Integer> ids) {
+            @ToolParam(description = "需要生成的衍生资产 ID 列表") List<String> ids) {
         log.info("[tool] generateDeriveAsset {}", ids);
         if (ids == null || ids.isEmpty()) return "无可生成的资产";
         int success = 0;
-        for (Integer id : ids) {
+        for (String id : ids) {
             OAssets asset = assetsMapper.selectById(id);
             if (asset == null) continue;
             try {
@@ -125,10 +119,10 @@ public class ProductionAgentTools {
 
     @Tool(description = "生成分镜图片，传入真实的分镜 ID 列表，支持批量")
     public String generateStoryboard(
-            @ToolParam(description = "分镜 ID 列表") List<Integer> ids) {
+            @ToolParam(description = "分镜 ID 列表") List<String> ids) {
         log.info("[tool] generateStoryboard {}", ids);
         if (ids == null || ids.isEmpty()) return "无可生成的分镜";
-        for (Integer id : ids) {
+        for (String id : ids) {
             OStoryboard sb = storyboardMapper.selectById(id);
             if (sb != null) {
                 sb.setState("生成中");

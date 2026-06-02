@@ -31,15 +31,15 @@ public class ScriptController {
         OScript script = new OScript();
         script.setName(req.getName());
         script.setContent(req.getContent());
-        script.setProjectId(req.getProjectId() != null ? req.getProjectId().toString() : null);
+        script.setProjectId(req.getProjectId());
         script.setCreateTime(System.currentTimeMillis());
         scriptMapper.insert(script);
 
         if (req.getAssets() != null && !req.getAssets().isEmpty()) {
-            for (Object assetIdRaw : req.getAssets()) {
+            for (String assetId : req.getAssets()) {
                 OScriptAssets sa = new OScriptAssets();
                 sa.setScriptId(script.getId());
-                sa.setAssetId(assetIdRaw != null ? assetIdRaw.toString() : null);
+                sa.setAssetId(assetId);
                 scriptAssetsMapper.insert(sa);
             }
         }
@@ -48,13 +48,12 @@ public class ScriptController {
 
     @PostMapping("/batchAddScript")
     public R<Map<String, String>> batchAddScript(@RequestBody Map<String, Object> body) {
-        // 批量添加剧本逻辑
         return R.ok(Map.of("message", "批量添加剧本成功"));
     }
 
     @PostMapping("/getScrptApi")
     public R<List<OScript>> getScript(@RequestBody Map<String, Object> body) {
-        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         List<OScript> list = scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>()
                         .eq(OScript::getProjectId, projectId)
@@ -70,16 +69,13 @@ public class ScriptController {
 
     @PostMapping("/delScript")
     public R<Map<String, String>> delScript(@RequestBody Map<String, Object> body) {
-        String id = (String) body.get("id") != null ? (String) body.get("id") : null;
+        String id = body.get("id") != null ? body.get("id").toString() : null;
         if (id == null) throw new BusinessException("id不能为空");
         scriptMapper.deleteById(id);
         scriptAssetsMapper.delete(new LambdaQueryWrapper<OScriptAssets>().eq(OScriptAssets::getScriptId, id));
         return R.ok(Map.of("message", "删除剧本成功"));
     }
 
-    /**
-     * 导出剧本为 zip（每个剧本一个 .txt）
-     */
     @PostMapping("/exportScript")
     public void exportScript(@RequestBody Map<String, Object> body,
                              jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
@@ -102,13 +98,10 @@ public class ScriptController {
         }
     }
 
-    /**
-     * 提取剧本资产：标记剧本为提取中，由 AI 识别角色/道具/场景
-     * 对应原项目 script/extractAssets（此处提供同步骨架，完整实现需结合 Agent 工具）
-     */
     @PostMapping("/extractAssets")
     public R<Map<String, String>> extractAssets(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> scriptIds = (List<String>) body.get("scriptIds");
+        @SuppressWarnings("unchecked")
+        List<String> scriptIds = (List<String>) body.get("scriptIds");
         if (scriptIds != null) {
             for (String id : scriptIds) {
                 OScript script = scriptMapper.selectById(id);
@@ -121,9 +114,6 @@ public class ScriptController {
         return R.ok(Map.of("message", "已提交资产提取任务"));
     }
 
-    /**
-     * AI 识别剧本的集/章节分隔正则
-     */
     @PostMapping("/getAiRegex")
     public R<Map<String, String>> getAiRegex(@RequestBody Map<String, String> body) {
         String content = body.get("content");
@@ -144,9 +134,6 @@ public class ScriptController {
         }
     }
 
-    /**
-     * 轮询剧本资产提取状态（排除"生成中"）
-     */
     @PostMapping("/pollScriptAssets")
     public R<List<OScript>> pollScriptAssets(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
@@ -162,7 +149,7 @@ public class ScriptController {
     public static class AddScriptRequest {
         @NotBlank private String name;
         @NotNull private String content;
-        @NotNull private Integer projectId;
-        private List<Object> assets;
+        @NotNull private String projectId;
+        @NotNull private List<String> assets;
     }
 }

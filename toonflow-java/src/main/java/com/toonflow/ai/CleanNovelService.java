@@ -34,12 +34,12 @@ public class CleanNovelService {
      * 异步启动事件生成
      */
     @Async
-    public void start(List<ONovel> chapters, Integer projectId) {
+    public void start(List<ONovel> chapters, String projectId) {
         start(chapters, projectId, DEFAULT_CONCURRENCY);
     }
 
     @Async
-    public void start(List<ONovel> chapters, Integer projectId, int concurrency) {
+    public void start(List<ONovel> chapters, String projectId, int concurrency) {
         Semaphore semaphore = new Semaphore(Math.max(1, concurrency));
         chapters.parallelStream().forEach(novel -> {
             try {

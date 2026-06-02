@@ -40,8 +40,7 @@ public class AgentWebSocketHandler {
         String sessionId = (String) payload.get("sessionId");
         String isolationKey = (String) payload.getOrDefault("isolationKey", sessionId);
         String userMessage = (String) payload.getOrDefault("message", "");
-        Long projectId = payload.get("projectId") != null
-                ? Long.valueOf(payload.get("projectId").toString()) : null;
+        String projectId = payload.get("projectId") != null ? payload.get("projectId").toString() : null;
 
         try {
             productionAgentService.runDecision(sessionId, isolationKey, projectId, userMessage);
@@ -62,8 +61,7 @@ public class AgentWebSocketHandler {
         String sessionId = (String) payload.get("sessionId");
         String isolationKey = (String) payload.getOrDefault("isolationKey", sessionId);
         String userMessage = (String) payload.getOrDefault("message", "");
-        Long projectId = payload.get("projectId") != null
-                ? Long.valueOf(payload.get("projectId").toString()) : null;
+        String projectId = payload.get("projectId") != null ? payload.get("projectId").toString() : null;
 
         try {
             scriptAgentService.runDecision(sessionId, isolationKey, projectId, userMessage);

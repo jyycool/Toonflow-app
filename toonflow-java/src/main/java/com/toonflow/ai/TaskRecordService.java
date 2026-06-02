@@ -7,10 +7,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-/**
- * 任务记录服务
- * 对应原项目 src/utils/taskRecord.ts
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -23,9 +19,6 @@ public class TaskRecordService {
     public static final String STATE_DONE = "已完成";
     public static final String STATE_FAILED = "生成失败";
 
-    /**
-     * 创建任务记录，返回任务 id
-     */
     public String start(String projectId, String taskClass, String modelName, String describe, Object content) {
         OTasks task = new OTasks();
         task.setProjectId(projectId);
@@ -36,12 +29,9 @@ public class TaskRecordService {
         task.setStartTime(System.currentTimeMillis());
         task.setRelatedObjects(serializeContent(content));
         tasksMapper.insert(task);
-        return task.getId() != null ? task.getId() : null;
+        return task.getId();
     }
 
-    /**
-     * 标记任务成功
-     */
     public void done(String taskId) {
         OTasks task = tasksMapper.selectById(taskId);
         if (task != null) {
@@ -51,9 +41,6 @@ public class TaskRecordService {
         }
     }
 
-    /**
-     * 标记任务失败
-     */
     public void fail(String taskId, String reason) {
         OTasks task = tasksMapper.selectById(taskId);
         if (task != null) {

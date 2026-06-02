@@ -41,7 +41,7 @@ public class ScriptAgentService {
     /**
      * 运行决策 Agent，流式推送结果
      */
-    public void runDecision(String sessionId, String isolationKey, Long projectId, String userText) {
+    public void runDecision(String sessionId, String isolationKey, String projectId, String userText) {
         // 1. 记录用户消息
         memoryService.add(AGENT_TYPE, isolationKey, "user", userText);
 
@@ -64,7 +64,7 @@ public class ScriptAgentService {
         StringBuilder fullResponse = new StringBuilder();
 
         // 绑定当前会话的工具集，供大模型自主调用
-        ScriptAgentTools tools = new ScriptAgentTools(novelMapper, scriptMapper, String.valueOf(projectId));
+        ScriptAgentTools tools = new ScriptAgentTools(novelMapper, scriptMapper, projectId);
 
         aiService.streamTextWithTools(AGENT_TYPE + ":decisionAgent", messages, tools)
                 .subscribe(
@@ -87,7 +87,7 @@ public class ScriptAgentService {
                         });
     }
 
-    private String buildProjectInfo(Long projectId) {
+    private String buildProjectInfo(String projectId) {
         OProject project = projectMapper.selectById(projectId);
         Long novelCount = novelMapper.selectCount(
                 new LambdaQueryWrapper<ONovel>().eq(ONovel::getProjectId, projectId));

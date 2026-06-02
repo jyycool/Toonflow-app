@@ -27,8 +27,8 @@ public class StoryboardController {
 
     @PostMapping("/getStoryboardData")
     public R<List<OStoryboard>> getStoryboardData(@RequestBody Map<String, Object> body) {
-        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
-        String scriptId = (String) body.get("scriptId") != null ? (String) body.get("scriptId") : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
         LambdaQueryWrapper<OStoryboard> wrapper = new LambdaQueryWrapper<OStoryboard>()
                 .eq(OStoryboard::getProjectId, projectId);
         if (scriptId != null) wrapper.eq(OStoryboard::getScriptId, scriptId);
@@ -52,7 +52,7 @@ public class StoryboardController {
 
     @PostMapping("/removeFrame")
     public R<Map<String, String>> removeFrame(@RequestBody Map<String, Object> body) {
-        String id = (String) body.get("id") != null ? (String) body.get("id") : null;
+        String id = body.get("id") != null ? body.get("id").toString() : null;
         storyboardMapper.deleteById(id);
         return R.ok(Map.of("message", "删除成功"));
     }
@@ -71,15 +71,12 @@ public class StoryboardController {
         return R.ok(Map.of("message", "更新成功"));
     }
 
-    /**
-     * 批量新增分镜信息
-     */
     @PostMapping("/batchAddStoryboardInfo")
     public R<Map<String, String>> batchAddStoryboardInfo(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> data = (List<Map<String, Object>>) body.get("data");
-        String scriptId = (String) body.get("scriptId") != null ? (String) body.get("scriptId") : null;
-        String projectId = (String) body.get("projectId") != null ? (String) body.get("projectId") : null;
+        String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         if (data == null || data.isEmpty()) throw new BusinessException("数据不能为空");
 
         int index = 0;
@@ -103,9 +100,6 @@ public class StoryboardController {
         return R.ok(Map.of("message", "批量新增分镜成功"));
     }
 
-    /**
-     * 预览分镜图片（返回有序的文件路径列表）
-     */
     @PostMapping("/previewImage")
     public R<List<Map<String, Object>>> previewImage(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked") List<String> storyboardIds = (List<String>) body.get("storyboardIds");
@@ -116,7 +110,6 @@ public class StoryboardController {
         Map<String, String> pathMap = new java.util.HashMap<>();
         storyboards.forEach(sb -> pathMap.put(sb.getId(), sb.getFilePath() != null ? sb.getFilePath() : ""));
 
-        // 按入参顺序返回
         List<Map<String, Object>> ordered = storyboardIds.stream()
                 .map(id -> {
                     Map<String, Object> m = new java.util.HashMap<>();

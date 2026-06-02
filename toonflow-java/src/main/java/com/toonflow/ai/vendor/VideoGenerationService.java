@@ -10,13 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-/**
- * 视频生成服务（异步 + 轮询闭环）
- * 对应原项目 production/workbench/generateVideo + checkVideoStateList
- *
- * 视频生成通常是异步任务：提交后轮询厂商任务状态，
- * 成功后下载视频并更新 o_video 记录状态。
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -27,9 +20,6 @@ public class VideoGenerationService {
     private final OVideoMapper videoMapper;
     private final OProjectMapper projectMapper;
 
-    /**
-     * 异步生成视频：委托适配器完成提交+轮询，再更新状态
-     */
     @Async
     public void asyncGenerate(String videoId, String projectId, String prompt) {
         OProject project = projectMapper.selectById(projectId);
@@ -39,7 +29,6 @@ public class VideoGenerationService {
                 "视频#" + videoId, null);
 
         try {
-            // 适配器内部完成「提交任务 + 轮询 + 返回最终地址」并落盘
             String videoUrl = mediaGenerationService.generateVideo(videoModel, prompt, null, "16:9");
 
             OVideo video = videoMapper.selectById(videoId);

@@ -75,12 +75,12 @@ public class ProductionAgentService {
     /**
      * 运行决策 Agent（主入口），流式推送
      */
-    public void runDecision(String sessionId, String isolationKey, Long projectId, String userText) {
+    public void runDecision(String sessionId, String isolationKey, String projectId, String userText) {
         runDecision(sessionId, isolationKey, projectId, null, userText);
     }
 
-    public void runDecision(String sessionId, String isolationKey, Long projectId,
-                            Integer scriptId, String userText) {
+    public void runDecision(String sessionId, String isolationKey, String projectId,
+                            String scriptId, String userText) {
         memoryService.add(AGENT_TYPE, isolationKey, "user", userText);
 
         MemoryService.MemoryContext mem = memoryService.get(isolationKey, userText);
@@ -96,7 +96,7 @@ public class ProductionAgentService {
         String imageModel = project != null ? project.getImageModel() : null;
         ProductionAgentTools tools = new ProductionAgentTools(assetsMapper, scriptAssetsMapper,
                 storyboardMapper, imageFlowMapper, mediaGenerationService,
-                String.valueOf(projectId), scriptId != null ? String.valueOf(scriptId) : null, imageModel);
+                projectId, scriptId, imageModel);
 
         streamAndSave(sessionId, isolationKey, AGENT_TYPE + ":decisionAgent",
                 messages, "assistant:decision", tools);
@@ -105,7 +105,7 @@ public class ProductionAgentService {
     /**
      * 运行指定子 Agent
      */
-    public void runSubAgent(String sessionId, String isolationKey, Long projectId,
+    public void runSubAgent(String sessionId, String isolationKey, String projectId,
                             SubAgent subAgent, String prompt) {
         messagingTemplate.convertAndSend("/topic/agent/" + sessionId,
                 Map.of("type", "agentStart", "name", subAgent.name));
@@ -147,7 +147,7 @@ public class ProductionAgentService {
                         });
     }
 
-    private String buildProjectInfo(Long projectId) {
+    private String buildProjectInfo(String projectId) {
         OProject project = projectMapper.selectById(projectId);
         if (project == null) return "## 项目信息\n（项目不存在）";
         return String.join("\n",
