@@ -301,7 +301,7 @@ public class NovelController {
 
     @PostMapping("/event/deletEvent")
     public R<Map<String, String>> deletEvent(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id");
+        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
         if (id == null) throw new BusinessException("id不能为空");
         eventMapper.deleteById(id);
         eventChapterMapper.delete(new LambdaQueryWrapper<OEventChapter>().eq(OEventChapter::getEventId, id));
@@ -310,7 +310,7 @@ public class NovelController {
 
     @PostMapping("/event/batchDeleteEvent")
     public R<Map<String, String>> batchDeleteEvent(@RequestBody Map<String, Object> body) {
-        List<Integer> ids = body.get("ids");
+        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
         eventMapper.deleteBatchIds(ids);
         eventChapterMapper.delete(new LambdaQueryWrapper<OEventChapter>().in(OEventChapter::getEventId, ids));

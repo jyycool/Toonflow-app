@@ -27,8 +27,8 @@ public class StoryboardController {
 
     @PostMapping("/getStoryboardData")
     public R<List<OStoryboard>> getStoryboardData(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId");
-        Integer scriptId = body.get("scriptId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        Integer scriptId = body.get("scriptId") != null ? ((Number) body.get("scriptId")).intValue() : null;
         LambdaQueryWrapper<OStoryboard> wrapper = new LambdaQueryWrapper<OStoryboard>()
                 .eq(OStoryboard::getProjectId, projectId);
         if (scriptId != null) wrapper.eq(OStoryboard::getScriptId, scriptId);
@@ -44,7 +44,7 @@ public class StoryboardController {
 
     @PostMapping("/batchDelete")
     public R<Map<String, String>> batchDelete(@RequestBody Map<String, Object> body) {
-        List<Integer> ids = body.get("ids");
+        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
         storyboardMapper.deleteBatchIds(ids);
         return R.ok(Map.of("message", "批量删除成功"));
@@ -52,14 +52,14 @@ public class StoryboardController {
 
     @PostMapping("/removeFrame")
     public R<Map<String, String>> removeFrame(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id");
+        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
         storyboardMapper.deleteById(id);
         return R.ok(Map.of("message", "删除成功"));
     }
 
     @PostMapping("/pollingImage")
     public R<List<OStoryboard>> pollingImage(@RequestBody Map<String, Object> body) {
-        List<Integer> ids = body.get("ids");
+        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(storyboardMapper.selectList(
                 new LambdaQueryWrapper<OStoryboard>().in(OStoryboard::getId, ids)));
@@ -108,7 +108,7 @@ public class StoryboardController {
      */
     @PostMapping("/previewImage")
     public R<List<Map<String, Object>>> previewImage(@RequestBody Map<String, Object> body) {
-        List<Integer> storyboardIds = body.get("storyboardIds");
+        @SuppressWarnings("unchecked") List<Integer> storyboardIds = body.get("storyboardIds") != null ? ((List<Number>) body.get("storyboardIds")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (storyboardIds == null || storyboardIds.isEmpty()) return R.ok(List.of());
 
         List<OStoryboard> storyboards = storyboardMapper.selectList(

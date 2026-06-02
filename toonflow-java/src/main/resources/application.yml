@@ -51,6 +51,11 @@ toonflow:
   jwt:
     expiration: 15552000  # 180 days in seconds
 
+spring:
+  jackson:
+    deserialization:
+      use-long-for-ints: true
+
 logging:
   level:
     com.toonflow: debug

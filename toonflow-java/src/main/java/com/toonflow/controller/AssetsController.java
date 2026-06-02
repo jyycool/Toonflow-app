@@ -32,8 +32,8 @@ public class AssetsController {
 
     @PostMapping("/getAssetsApi")
     public R<List<OAssets>> getAssets(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId");
-        Integer scriptId = body.get("scriptId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
+        Integer scriptId = body.get("scriptId") != null ? ((Number) body.get("scriptId")).intValue() : null;
         LambdaQueryWrapper<OAssets> wrapper = new LambdaQueryWrapper<OAssets>()
                 .eq(OAssets::getProjectId, projectId);
         if (scriptId != null) wrapper.eq(OAssets::getScriptId, scriptId);
@@ -48,7 +48,7 @@ public class AssetsController {
 
     @PostMapping("/delAssets")
     public R<Map<String, String>> delAssets(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id");
+        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
         if (id == null) throw new BusinessException("id不能为空");
         assetsMapper.deleteById(id);
         return R.ok(Map.of("message", "删除素材成功"));
@@ -56,7 +56,7 @@ public class AssetsController {
 
     @PostMapping("/batchDelete")
     public R<Map<String, String>> batchDelete(@RequestBody Map<String, Object> body) {
-        List<Integer> ids = body.get("ids");
+        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
         assetsMapper.deleteBatchIds(ids);
         return R.ok(Map.of("message", "批量删除成功"));
@@ -64,7 +64,7 @@ public class AssetsController {
 
     @PostMapping("/getImage")
     public R<OImage> getImage(@RequestBody Map<String, Object> body) {
-        return R.ok(imageMapper.selectById(body.get("id")));
+        return R.ok(imageMapper.selectById(body.get("id") != null ? ((Number) body.get("id")).intValue() : null));
     }
 
     @PostMapping("/saveAssets")
@@ -80,7 +80,7 @@ public class AssetsController {
 
     @PostMapping("/pollingImageAssets")
     public R<List<OImage>> pollingImageAssets(@RequestBody Map<String, Object> body) {
-        List<Integer> ids = body.get("ids");
+        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(imageMapper.selectList(
                 new LambdaQueryWrapper<OImage>().in(OImage::getId, ids)));
@@ -88,7 +88,7 @@ public class AssetsController {
 
     @PostMapping("/pollingPromptAssets")
     public R<List<OAssets>> pollingPromptAssets(@RequestBody Map<String, Object> body) {
-        List<Integer> ids = body.get("ids");
+        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>().in(OAssets::getId, ids)));
@@ -128,7 +128,7 @@ public class AssetsController {
      */
     @PostMapping("/getMaterialData")
     public R<List<OAssets>> getMaterialData(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         return R.ok(assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>()
                         .eq(OAssets::getProjectId, projectId)
@@ -144,7 +144,7 @@ public class AssetsController {
 
     @PostMapping("/delImage")
     public R<Map<String, String>> delImage(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id");
+        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
         if (id != null) imageMapper.deleteById(id);
         return R.ok(Map.of("message", "删除图片成功"));
     }

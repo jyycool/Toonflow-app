@@ -114,7 +114,7 @@ public class CornerScapeController {
      */
     @PostMapping("/pollingAudio")
     public R<List<OAssets>> pollingAudio(@RequestBody Map<String, Object> body) {
-        List<Integer> ids = body.get("ids");
+        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>()

@@ -37,7 +37,7 @@ public class ProductionController {
 
     @PostMapping("/getFlowData")
     public R<OImageFlow> getFlowData(@RequestBody Map<String, Object> body) {
-        return R.ok(imageFlowMapper.selectById(body.get("id")));
+        return R.ok(imageFlowMapper.selectById(body.get("id") != null ? ((Number) body.get("id")).intValue() : null));
     }
 
     @PostMapping("/saveFlowData")
@@ -52,7 +52,7 @@ public class ProductionController {
 
     @PostMapping("/getStoryboardData")
     public R<List<OStoryboard>> getStoryboardData(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         return R.ok(storyboardMapper.selectList(
                 new LambdaQueryWrapper<OStoryboard>()
                         .eq(OStoryboard::getProjectId, projectId)
@@ -63,7 +63,7 @@ public class ProductionController {
 
     @PostMapping("/workbench/getVideoList")
     public R<List<OVideo>> getVideoList(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         return R.ok(videoMapper.selectList(
                 new LambdaQueryWrapper<OVideo>().eq(OVideo::getProjectId, projectId)));
     }
@@ -76,15 +76,15 @@ public class ProductionController {
 
     @PostMapping("/workbench/deleteTrack")
     public R<Map<String, String>> deleteTrack(@RequestBody Map<String, Object> body) {
-        videoTrackMapper.deleteById(body.get("id"));
+        videoTrackMapper.deleteById(body.get("id") != null ? ((Number) body.get("id")).intValue() : null);
         return R.ok(Map.of("message", "删除轨道成功"));
     }
 
     @PostMapping("/workbench/selectVideo")
     public R<Map<String, String>> selectVideo(@RequestBody Map<String, Object> body) {
-        OVideoTrack track = videoTrackMapper.selectById(body.get("trackId"));
+        OVideoTrack track = videoTrackMapper.selectById(((Number) body.get("trackId")).intValue());
         if (track != null) {
-            track.setSelectVideoId(body.get("videoId"));
+            track.setSelectVideoId(body.get("videoId") != null ? ((Number) body.get("videoId")).intValue() : null);
             videoTrackMapper.updateById(track);
         }
         return R.ok(Map.of("message", "选择视频成功"));
@@ -92,7 +92,7 @@ public class ProductionController {
 
     @PostMapping("/workbench/delVideo")
     public R<Map<String, String>> delVideo(@RequestBody Map<String, Object> body) {
-        videoMapper.deleteById(body.get("id"));
+        videoMapper.deleteById(((Number) body.get("id")).intValue());
         return R.ok(Map.of("message", "删除视频成功"));
     }
 
@@ -110,7 +110,7 @@ public class ProductionController {
 
     @PostMapping("/workbench/getGenerateData")
     public R<Map<String, Object>> getGenerateData(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         List<OVideoTrack> tracks = videoTrackMapper.selectList(
                 new LambdaQueryWrapper<OVideoTrack>().eq(OVideoTrack::getProjectId, projectId));
         List<OVideo> videos = videoMapper.selectList(
@@ -179,7 +179,7 @@ public class ProductionController {
 
     @PostMapping("/editImage/getImageFlow")
     public R<OImageFlow> getImageFlow(@RequestBody Map<String, Object> body) {
-        return R.ok(imageFlowMapper.selectById(body.get("id")));
+        return R.ok(imageFlowMapper.selectById(body.get("id") != null ? ((Number) body.get("id")).intValue() : null));
     }
 
     @PostMapping("/editImage/saveImageFlow")
@@ -305,7 +305,7 @@ public class ProductionController {
      */
     @PostMapping("/assets/pollingImage")
     public R<List<Map<String, Object>>> pollingProductionAssets(@RequestBody Map<String, Object> body) {
-        List<Integer> ids = body.get("ids");
+        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         List<com.toonflow.entity.OAssets> assetsList = assetsMapper.selectList(
                 new LambdaQueryWrapper<com.toonflow.entity.OAssets>().in(com.toonflow.entity.OAssets::getId, ids));
@@ -331,7 +331,7 @@ public class ProductionController {
      */
     @PostMapping("/assets/deleteAssetsDireve")
     public R<Map<String, String>> deleteAssetsDireve(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id");
+        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
         com.toonflow.entity.OAssets asset = assetsMapper.selectById(id);
         if (asset == null) throw new com.toonflow.common.exception.BusinessException("资源未找到");
         if (asset.getFlowId() != null) imageFlowMapper.deleteById(asset.getFlowId());
@@ -439,7 +439,7 @@ public class ProductionController {
 
     @PostMapping("/workbench/getAudioBindAssetsList")
     public R<List<Map<String, Object>>> getAudioBindAssetsList(@RequestBody Map<String, Object> body) {
-        List<Integer> assetsIds = body.get("assetsIds");
+        @SuppressWarnings("unchecked") List<Integer> assetsIds = body.get("assetsIds") != null ? ((List<Number>) body.get("assetsIds")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (assetsIds == null || assetsIds.isEmpty()) return R.ok(List.of());
 
         List<com.toonflow.entity.OAssetsRole2Audio> binds = role2AudioMapper.selectList(

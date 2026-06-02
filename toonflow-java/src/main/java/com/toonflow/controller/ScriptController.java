@@ -54,7 +54,7 @@ public class ScriptController {
 
     @PostMapping("/getScrptApi")
     public R<List<OScript>> getScript(@RequestBody Map<String, Object> body) {
-        Integer projectId = body.get("projectId");
+        Integer projectId = body.get("projectId") != null ? ((Number) body.get("projectId")).intValue() : null;
         List<OScript> list = scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>()
                         .eq(OScript::getProjectId, projectId)
@@ -70,7 +70,7 @@ public class ScriptController {
 
     @PostMapping("/delScript")
     public R<Map<String, String>> delScript(@RequestBody Map<String, Object> body) {
-        Integer id = body.get("id");
+        Integer id = body.get("id") != null ? ((Number) body.get("id")).intValue() : null;
         if (id == null) throw new BusinessException("id不能为空");
         scriptMapper.deleteById(id);
         scriptAssetsMapper.delete(new LambdaQueryWrapper<OScriptAssets>().eq(OScriptAssets::getScriptId, id));
@@ -83,7 +83,7 @@ public class ScriptController {
     @PostMapping("/exportScript")
     public void exportScript(@RequestBody Map<String, Object> body,
                              jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
-        List<Integer> ids = body.get("id");
+        @SuppressWarnings("unchecked") List<Integer> ids = body.get("id") != null ? ((List<Number>) body.get("id")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (ids == null || ids.isEmpty()) throw new BusinessException("id不能为空");
         List<OScript> scripts = scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>().in(OScript::getId, ids));
@@ -151,7 +151,7 @@ public class ScriptController {
      */
     @PostMapping("/pollScriptAssets")
     public R<List<OScript>> pollScriptAssets(@RequestBody Map<String, Object> body) {
-        List<Integer> ids = body.get("ids");
+        @SuppressWarnings("unchecked") List<Integer> ids = body.get("ids") != null ? ((List<Number>) body.get("ids")).stream().map(Number::intValue).collect(java.util.stream.Collectors.toList()) : null;
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
         return R.ok(scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>()
