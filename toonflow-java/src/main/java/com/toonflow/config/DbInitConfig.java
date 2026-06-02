@@ -12,6 +12,11 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.*;
 import java.util.UUID;
 
 @Slf4j
@@ -31,8 +36,36 @@ public class DbInitConfig implements ApplicationRunner {
     @Override
     public void run(ApplicationArguments args) {
         ensureDirectories();
+        copyDefaultSkills();
         initTables();
         initDefaultData();
+    }
+
+    private void copyDefaultSkills() {
+        Path skillsTarget = Paths.get(dataDir, "skills");
+        // 已有内容则跳过
+        try {
+            if (Files.exists(skillsTarget) && Files.list(skillsTarget).findAny().isPresent()) return;
+        } catch (IOException ignored) {}
+        URL resource = getClass().getClassLoader().getResource("default-data/skills");
+        if (resource == null) { log.warn("default-data/skills 资源包不存在，跳过初始化技能目录"); return; }
+        try {
+            Path src = Paths.get(resource.toURI());
+            Files.walkFileTree(src, new SimpleFileVisitor<>() {
+                @Override public FileVisitResult preVisitDirectory(Path dir, java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
+                    Files.createDirectories(skillsTarget.resolve(src.relativize(dir)));
+                    return FileVisitResult.CONTINUE;
+                }
+                @Override public FileVisitResult visitFile(Path file, java.nio.file.attribute.BasicFileAttributes attrs) throws IOException {
+                    Path dest = skillsTarget.resolve(src.relativize(file));
+                    if (!Files.exists(dest)) Files.copy(file, dest);
+                    return FileVisitResult.CONTINUE;
+                }
+            });
+            log.info("默认技能文件已复制到 {}", skillsTarget);
+        } catch (URISyntaxException | IOException e) {
+            log.warn("复制默认技能文件失败: {}", e.getMessage());
+        }
     }
 
     private void ensureDirectories() {
