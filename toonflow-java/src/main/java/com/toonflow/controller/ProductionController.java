@@ -32,6 +32,7 @@ public class ProductionController {
     private final com.toonflow.mapper.OScriptMapper scriptMapper;
     private final com.toonflow.mapper.OScriptAssetsMapper scriptAssetsMapper;
     private final com.toonflow.mapper.OAssetsRole2AudioMapper assetsRole2AudioMapper;
+    private final com.toonflow.mapper.OPromptMapper promptMapper;
     private final com.toonflow.ai.vendor.VideoGenerationService videoGenerationService;
     private final com.toonflow.ai.vendor.MediaGenerationService mediaGenerationService;
     private final com.toonflow.ai.TaskRecordService taskRecordService;
@@ -170,13 +171,53 @@ public class ProductionController {
     private String nvl(String s) { return s != null ? s : ""; }
 
     @PostMapping("/saveFlowData")
-    public R<Map<String, Object>> saveFlowData(@RequestBody OImageFlow flow) {
-        if (flow.getId() == null) {
-            imageFlowMapper.insert(flow);
-        } else {
-            imageFlowMapper.updateById(flow);
+    public R<Void> saveFlowData(@RequestBody Map<String, Object> body) {
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String episodesId = body.get("episodesId") != null ? body.get("episodesId").toString() : null;
+        String dataJson;
+        try {
+            dataJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(body.get("data"));
+        } catch (Exception e) {
+            dataJson = "{}";
         }
-        return R.ok(Map.of("id", flow.getId(), "message", "保存成功"));
+
+        // Update storyboard order if data.storyboard present
+        Object dataObj = body.get("data");
+        if (dataObj instanceof Map<?, ?> dataMap) {
+            Object sbObj = dataMap.get("storyboard");
+            if (sbObj instanceof List<?> sbList) {
+                boolean allHaveId = sbList.stream().allMatch(i -> i instanceof Map<?, ?> m && m.get("id") != null);
+                if (!sbList.isEmpty() && allHaveId) {
+                    for (int idx = 0; idx < sbList.size(); idx++) {
+                        if (sbList.get(idx) instanceof Map<?, ?> sm && sm.get("id") != null) {
+                            OStoryboard sb = new OStoryboard();
+                            sb.setId(sm.get("id").toString());
+                            sb.setIndex(idx);
+                            storyboardMapper.updateById(sb);
+                        }
+                    }
+                }
+            }
+        }
+
+        com.toonflow.entity.OAgentWorkData existing = agentWorkDataMapper.selectOne(
+                new LambdaQueryWrapper<com.toonflow.entity.OAgentWorkData>()
+                        .eq(com.toonflow.entity.OAgentWorkData::getProjectId, projectId)
+                        .eq(com.toonflow.entity.OAgentWorkData::getEpisodesId, episodesId)
+                        .eq(com.toonflow.entity.OAgentWorkData::getKey, "productionAgent")
+                        .last("LIMIT 1"));
+        if (existing == null) {
+            com.toonflow.entity.OAgentWorkData record = new com.toonflow.entity.OAgentWorkData();
+            record.setProjectId(projectId);
+            record.setEpisodesId(episodesId);
+            record.setKey("productionAgent");
+            record.setData(dataJson);
+            agentWorkDataMapper.insert(record);
+        } else {
+            existing.setData(dataJson);
+            agentWorkDataMapper.updateById(existing);
+        }
+        return R.ok();
     }
 
     @PostMapping("/getStoryboardData")
@@ -614,31 +655,51 @@ public class ProductionController {
     }
 
     @PostMapping("/workbench/getFileUrl")
-    public R<List<Map<String, Object>>> getFileUrl(@RequestBody Map<String, Object> body) {
+    public R<Map<String, Object>> getFileUrl(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("items");
-        List<Map<String, Object>> result = new java.util.ArrayList<>();
-        if (items == null) return R.ok(result);
+        Map<String, String> result = new HashMap<>();
+        if (items == null) return R.ok(Map.of("data", result));
+
+        // Batch: collect storyboard and asset ids
+        List<String> sbIds = items.stream().filter(i -> "storyboard".equals(i.get("sources")) && i.get("id") != null)
+                .map(i -> i.get("id").toString()).collect(Collectors.toList());
+        List<String> assetIds = items.stream().filter(i -> "assets".equals(i.get("sources")) && i.get("id") != null)
+                .map(i -> i.get("id").toString()).collect(Collectors.toList());
+
+        Map<String, String> sbFilePaths = new HashMap<>();
+        if (!sbIds.isEmpty()) {
+            storyboardMapper.selectList(new LambdaQueryWrapper<OStoryboard>().in(OStoryboard::getId, sbIds)
+                    .select(OStoryboard::getId, OStoryboard::getFilePath))
+                    .forEach(s -> sbFilePaths.put(s.getId(), s.getFilePath() != null ? s.getFilePath() : ""));
+        }
+
+        Map<String, String> assetFilePaths = new HashMap<>();
+        if (!assetIds.isEmpty()) {
+            List<com.toonflow.entity.OAssets> assets = assetsMapper.selectList(
+                    new LambdaQueryWrapper<com.toonflow.entity.OAssets>().in(com.toonflow.entity.OAssets::getId, assetIds));
+            List<String> imgIds = assets.stream().filter(a -> a.getImageId() != null)
+                    .map(com.toonflow.entity.OAssets::getImageId).distinct().collect(Collectors.toList());
+            Map<String, String> imgMap = imgIds.isEmpty() ? Map.of() :
+                    imageMapper.selectList(new LambdaQueryWrapper<com.toonflow.entity.OImage>().in(com.toonflow.entity.OImage::getId, imgIds))
+                            .stream().collect(Collectors.toMap(com.toonflow.entity.OImage::getId,
+                                    i -> i.getFilePath() != null ? i.getFilePath() : ""));
+            assets.forEach(a -> assetFilePaths.put(a.getId(),
+                    a.getImageId() != null ? imgMap.getOrDefault(a.getImageId(), "") : ""));
+        }
 
         for (Map<String, Object> item : items) {
             String id = item.get("id") != null ? item.get("id").toString() : null;
-            String sources = (String) item.get("sources");
-            Map<String, Object> entry = new java.util.HashMap<>();
-            entry.put("id", id);
-            entry.put("sources", sources);
+            String sources = item.get("sources") != null ? item.get("sources").toString() : "";
+            if (id == null) continue;
+            String key = id + ":" + sources;
             if ("storyboard".equals(sources)) {
-                OStoryboard sb = storyboardMapper.selectById(id);
-                entry.put("filePath", sb != null ? sb.getFilePath() : null);
+                result.put(key, sbFilePaths.getOrDefault(id, ""));
             } else if ("assets".equals(sources)) {
-                com.toonflow.entity.OAssets asset = assetsMapper.selectById(id);
-                if (asset != null && asset.getImageId() != null) {
-                    com.toonflow.entity.OImage img = imageMapper.selectById(asset.getImageId());
-                    entry.put("filePath", img != null ? img.getFilePath() : null);
-                }
+                result.put(key, assetFilePaths.getOrDefault(id, ""));
             }
-            result.add(entry);
         }
-        return R.ok(result);
+        return R.ok(Map.of("data", result));
     }
 
     private String resolveSize(String ratio) {
@@ -787,22 +848,79 @@ public class ProductionController {
 
     @PostMapping("/workbench/batchGeneratePrompt")
     public R<Map<String, String>> batchGeneratePrompt(@RequestBody Map<String, Object> body) {
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String model = body.get("model") != null ? body.get("model").toString() : null;
         @SuppressWarnings("unchecked")
-        List<String> trackIds = (List<String>) body.get("trackIds");
-        if (trackIds != null) {
-            for (String trackId : trackIds) {
+        List<Map<String, Object>> trackDataList = (List<Map<String, Object>>) body.get("trackData");
+        if (trackDataList == null || trackDataList.isEmpty()) return R.ok(Map.of("message", "批量生成提示词完成"));
+
+        OProject project = projectMapper.selectById(projectId);
+        String artStyle = project != null ? nvl(project.getArtStyle()) : "";
+
+        // Load videoPromptGeneration system prompt from o_prompt
+        com.toonflow.entity.OPrompt videoPrompt = promptMapper.selectOne(
+                new LambdaQueryWrapper<com.toonflow.entity.OPrompt>()
+                        .eq(com.toonflow.entity.OPrompt::getType, "videoPromptGeneration").last("LIMIT 1"));
+        String systemPrompt = videoPrompt != null
+                ? (videoPrompt.getUseData() != null ? videoPrompt.getUseData() : nvl(videoPrompt.getData()))
+                : "你是视频生成提示词专家。请根据画面描述和资产信息生成适合视频生成模型的提示词，只输出提示词。";
+
+        for (Map<String, Object> trackDataItem : trackDataList) {
+            String trackId = trackDataItem.get("trackId") != null ? trackDataItem.get("trackId").toString() : null;
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> info = (List<Map<String, Object>>) trackDataItem.get("info");
+            if (trackId == null || info == null) continue;
+
+            // Build content from info items
+            List<Map<String, Object>> assets = new ArrayList<>();
+            List<Map<String, Object>> storyboards = new ArrayList<>();
+            for (Map<String, Object> infoItem : info) {
+                String id = infoItem.get("id") != null ? infoItem.get("id").toString() : null;
+                String sources = infoItem.get("sources") != null ? infoItem.get("sources").toString() : "";
+                if ("storyboard".equals(sources) && id != null) {
+                    OStoryboard sb = storyboardMapper.selectById(id);
+                    if (sb != null) {
+                        List<com.toonflow.entity.OAssets2Storyboard> a2s = assets2StoryboardMapper.selectList(
+                                new LambdaQueryWrapper<com.toonflow.entity.OAssets2Storyboard>()
+                                        .eq(com.toonflow.entity.OAssets2Storyboard::getStoryboardId, id));
+                        List<String> aIds = a2s.stream().map(com.toonflow.entity.OAssets2Storyboard::getAssetId).collect(Collectors.toList());
+                        Map<String, Object> sbMap = new HashMap<>();
+                        sbMap.put("videoDesc", sb.getVideoDesc());
+                        sbMap.put("duration", sb.getDuration());
+                        sbMap.put("associateAssetsIds", aIds);
+                        storyboards.add(sbMap);
+                    }
+                } else if ("assets".equals(sources) && id != null) {
+                    com.toonflow.entity.OAssets asset = assetsMapper.selectById(id);
+                    if (asset != null) {
+                        com.toonflow.entity.OImage img = asset.getImageId() != null ? imageMapper.selectById(asset.getImageId()) : null;
+                        Map<String, Object> am = new HashMap<>();
+                        am.put("id", asset.getId()); am.put("type", asset.getType()); am.put("name", asset.getName());
+                        am.put("filePath", img != null ? img.getFilePath() : null);
+                        assets.add(am);
+                    }
+                }
+            }
+
+            String modelData = model != null && model.contains(":") ? model.split(":", 2)[1] : model;
+            String content = "**模型名称**：" + modelData + "，**资产信息**（角色、场景、道具、音频)：" +
+                    assets.stream().filter(a -> a.get("filePath") != null)
+                            .map(a -> "[" + a.get("id") + "," + a.get("type") + "," + a.get("name") + "]")
+                            .collect(Collectors.joining("，")) +
+                    "，**分镜信息**：" + storyboards.stream()
+                            .map(s -> "<storyboardItem videoDesc='" + s.get("videoDesc") + "' duration='" + s.get("duration") + "'></storyboardItem>")
+                            .collect(Collectors.joining());
+
+            try {
+                String prompt = aiService.generateText("universalAi", List.of(
+                        new com.toonflow.ai.AiService.ChatMessage("system", systemPrompt),
+                        new com.toonflow.ai.AiService.ChatMessage("user", content)));
                 OVideoTrack track = videoTrackMapper.selectById(trackId);
-                if (track == null) continue;
-                try {
-                    String prompt = aiService.generateText("universalAi", List.of(
-                            new com.toonflow.ai.AiService.ChatMessage("system",
-                                    "你是视频提示词专家，根据描述生成视频提示词，只输出提示词。"),
-                            new com.toonflow.ai.AiService.ChatMessage("user",
-                                    track.getReason() != null ? track.getReason() : "")));
+                if (track != null) {
                     track.setPrompt(prompt);
                     videoTrackMapper.updateById(track);
-                } catch (Exception ignored) {}
-            }
+                }
+            } catch (Exception ignored) {}
         }
         return R.ok(Map.of("message", "批量生成提示词完成"));
     }

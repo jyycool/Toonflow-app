@@ -300,8 +300,90 @@ public class AssetsController {
     }
 
     @PostMapping("/updateAudioAssets")
-    public R<Map<String, String>> updateAudioAssets(@RequestBody OAssets asset) {
-        assetsMapper.updateById(asset);
+    public R<Map<String, String>> updateAudioAssets(@RequestBody Map<String, Object> body) {
+        String id = body.get("id") != null ? body.get("id").toString() : null;
+        String name = (String) body.get("name");
+        String describe = (String) body.get("describe");
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> assetsItem = (List<Map<String, Object>>) body.get("assetsItem");
+        if (assetsItem == null) assetsItem = List.of();
+
+        // Process base64 audio files
+        for (Map<String, Object> item : assetsItem) {
+            String base64 = (String) item.get("base64");
+            if (base64 != null && !base64.isBlank()) {
+                try {
+                    java.util.regex.Matcher m = java.util.regex.Pattern.compile("^data:audio/([^;]+);base64,").matcher(base64);
+                    String ext = m.find() ? m.group(1) : "mp3";
+                    Map<String, String> mimeToExt = Map.of("mpeg","mp3","x-wav","wav","x-aiff","aiff","x-m4a","m4a","x-flac","flac");
+                    ext = mimeToExt.getOrDefault(ext, ext);
+                    String src = "/" + projectId + "/assets/audio/" + UUID.randomUUID() + "." + ext;
+                    String raw = base64.contains(",") ? base64.substring(base64.indexOf(",") + 1) : base64;
+                    java.nio.file.Path fullPath = java.nio.file.Paths.get(
+                            System.getProperty("user.home"), ".toonflow", "oss", src);
+                    java.nio.file.Files.createDirectories(fullPath.getParent());
+                    java.nio.file.Files.write(fullPath, java.util.Base64.getDecoder().decode(raw));
+                    item.put("src", src);
+                } catch (Exception ignored) {}
+            }
+        }
+
+        // Update parent
+        OAssets parent = new OAssets();
+        parent.setId(id); parent.setName(name); parent.setDescribe(describe);
+        assetsMapper.updateById(parent);
+
+        // Delete removed children
+        List<OAssets> existingChildren = assetsMapper.selectList(
+                new LambdaQueryWrapper<OAssets>().eq(OAssets::getAssetsId, id));
+        List<String> existingIds = existingChildren.stream().map(OAssets::getId).collect(Collectors.toList());
+        List<String> incomingIds = assetsItem.stream()
+                .filter(i -> i.get("id") != null).map(i -> i.get("id").toString()).collect(Collectors.toList());
+        List<String> toDeleteIds = existingIds.stream().filter(eid -> !incomingIds.contains(eid)).collect(Collectors.toList());
+        if (!toDeleteIds.isEmpty()) {
+            List<OAssets> toDeleteAssets = assetsMapper.selectList(
+                    new LambdaQueryWrapper<OAssets>().in(OAssets::getId, toDeleteIds));
+            List<String> deleteImageIds = toDeleteAssets.stream()
+                    .filter(a -> a.getImageId() != null).map(OAssets::getImageId).collect(Collectors.toList());
+            assetsMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<OAssets>()
+                    .in(OAssets::getId, toDeleteIds).set(OAssets::getImageId, null));
+            if (!deleteImageIds.isEmpty())
+                imageMapper.deleteBatchIds(deleteImageIds);
+            assetsMapper.deleteBatchIds(toDeleteIds);
+        }
+
+        // Update or create children
+        for (Map<String, Object> item : assetsItem) {
+            String itemId = item.get("id") != null ? item.get("id").toString() : null;
+            String src = item.get("src") != null ? item.get("src").toString() : null;
+            String prompt = item.get("prompt") != null ? item.get("prompt").toString() : null;
+            String itemDescribe = item.get("describe") != null ? item.get("describe").toString() : null;
+            String itemName = item.get("name") != null ? item.get("name").toString() : null;
+            if (itemId != null) {
+                OAssets child = new OAssets();
+                child.setId(itemId); child.setPrompt(prompt);
+                child.setDescribe(itemDescribe); child.setName(itemName);
+                assetsMapper.updateById(child);
+                OAssets childData = assetsMapper.selectById(itemId);
+                if (childData != null && childData.getImageId() != null) {
+                    OImage img = new OImage();
+                    img.setId(childData.getImageId()); img.setFilePath(src);
+                    imageMapper.updateById(img);
+                }
+            } else {
+                OAssets child = new OAssets();
+                child.setPrompt(prompt); child.setAssetsId(id); child.setType("audio");
+                child.setProjectId(projectId); child.setDescribe(itemDescribe);
+                child.setName(itemName); child.setStartTime(System.currentTimeMillis());
+                assetsMapper.insert(child);
+                OImage img = new OImage();
+                img.setFilePath(src); img.setType("audio"); img.setAssetsId(child.getId()); img.setState("已完成");
+                imageMapper.insert(img);
+                child.setImageId(img.getId());
+                assetsMapper.updateById(child);
+            }
+        }
         return R.ok(Map.of("message", "更新音频素材成功"));
     }
 
