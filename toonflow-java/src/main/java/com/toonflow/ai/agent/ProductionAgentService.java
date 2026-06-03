@@ -13,10 +13,15 @@ import com.toonflow.mapper.OStoryboardMapper;
 import com.toonflow.websocket.SocketIoWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 @Service
@@ -32,6 +37,9 @@ public class ProductionAgentService {
     private final OImageFlowMapper imageFlowMapper;
     private final MediaGenerationService mediaGenerationService;
     private final SocketIoWebSocketHandler socketIoHandler;
+
+    @Value("${toonflow.data-dir:${user.home}/.toonflow}")
+    private String dataDir;
 
     private static final String AGENT_TYPE = "productionAgent";
 
@@ -53,59 +61,68 @@ public class ProductionAgentService {
                 new AiService.ChatMessage("assistant", projectInfo + "\n" + memPrompt),
                 new AiService.ChatMessage("user", userText));
 
-        OProject project = projectMapper.selectById(projectId);
-        String imageModel = project != null ? project.getImageModel() : null;
-        ProductionAgentTools tools = new ProductionAgentTools(assetsMapper, scriptAssetsMapper,
-                storyboardMapper, imageFlowMapper, mediaGenerationService,
-                projectId, scriptId, imageModel);
-
-        String messageId = UUID.randomUUID().toString();
-        String contentId = UUID.randomUUID().toString();
-        String datetime = new java.util.Date().toString();
+        // Initial message
+        String initMsgId = UUID.randomUUID().toString();
+        String initContentId = UUID.randomUUID().toString();
 
         socketIoHandler.emit(session, namespace, "message", Map.of(
-                "id", messageId, "role", "assistant", "name", "视频策划",
-                "status", "pending", "datetime", datetime, "content", new ArrayList<>()));
-
+                "id", initMsgId, "role", "assistant", "name", "视频策划",
+                "status", "pending", "datetime", new Date().toString(),
+                "content", new ArrayList<>()));
         socketIoHandler.emit(session, namespace, "content:add", Map.of(
-                "messageId", messageId,
-                "content", Map.of("type", "text", "id", contentId, "data", "", "status", "pending")));
+                "messageId", initMsgId,
+                "content", Map.of("type", "text", "id", initContentId, "data", "", "status", "pending")));
+
+        AtomicReference<String[]> msgState = new AtomicReference<>(new String[]{initMsgId, initContentId});
+
+        OProject project = projectMapper.selectById(projectId);
+        String imageModel = project != null ? project.getImageModel() : null;
+
+        ProductionAgentTools tools = new ProductionAgentTools(
+                assetsMapper, scriptAssetsMapper, storyboardMapper, imageFlowMapper,
+                mediaGenerationService, projectId, scriptId, imageModel,
+                aiService, memoryService, socketIoHandler,
+                session, namespace, isolationKey, dataDir, msgState);
 
         StringBuilder full = new StringBuilder();
+
         aiService.streamTextWithTools(AGENT_TYPE + ":decisionAgent", messages, tools)
                 .subscribe(
                         chunk -> {
                             full.append(chunk);
+                            String[] cur = msgState.get();
                             socketIoHandler.emit(session, namespace, "content:update", Map.of(
-                                    "messageId", messageId, "contentId", contentId,
+                                    "messageId", cur[0], "contentId", cur[1],
                                     "type", "text", "data", chunk,
                                     "strategy", "append", "status", "streaming"));
                         },
                         error -> {
                             log.error("制作 Agent 执行失败", error);
+                            String[] cur = msgState.get();
                             Map<String, Object> errContent = new HashMap<>();
-                            errContent.put("messageId", messageId);
-                            errContent.put("contentId", contentId);
+                            errContent.put("messageId", cur[0]);
+                            errContent.put("contentId", cur[1]);
                             errContent.put("type", "text");
                             errContent.put("data", null);
                             errContent.put("status", "error");
                             socketIoHandler.emit(session, namespace, "content:update", errContent);
                             socketIoHandler.emit(session, namespace, "message:update", Map.of(
-                                    "id", messageId, "status", "error",
+                                    "id", cur[0], "status", "error",
                                     "ext", Map.of("error", error.getMessage() != null ? error.getMessage() : "未知错误")));
                         },
                         () -> {
                             memoryService.add(AGENT_TYPE, isolationKey, "assistant:decision",
                                     stripXmlTags(full.toString()));
+                            String[] cur = msgState.get();
                             Map<String, Object> doneContent = new HashMap<>();
-                            doneContent.put("messageId", messageId);
-                            doneContent.put("contentId", contentId);
+                            doneContent.put("messageId", cur[0]);
+                            doneContent.put("contentId", cur[1]);
                             doneContent.put("type", "text");
                             doneContent.put("data", null);
                             doneContent.put("status", "complete");
                             socketIoHandler.emit(session, namespace, "content:update", doneContent);
-                            socketIoHandler.emit(session, namespace, "message:update", Map.of(
-                                    "id", messageId, "status", "complete"));
+                            socketIoHandler.emit(session, namespace, "message:update",
+                                    Map.of("id", cur[0], "status", "complete"));
                         });
     }
 
@@ -123,12 +140,12 @@ public class ProductionAgentService {
     }
 
     private String loadDecisionPrompt() {
-        return """
-                你是 Toonflow 的制作总导演决策 Agent。你负责把已完成的剧本制作成视频成片。
-                你可以调度以下子 Agent 完成工作：素材提取、素材生成、导演规划、
-                分镜生成、分镜面板、分镜表格、监制审核。
-                请根据用户意图判断下一步该执行哪个环节，并给出专业的制作决策。
-                """;
+        try {
+            return Files.readString(Paths.get(dataDir, "skills", "production_agent_decision.md"));
+        } catch (IOException e) {
+            log.warn("无法读取 production_agent_decision.md: {}", e.getMessage());
+            return "你是 Toonflow 的制作总导演决策 Agent，负责把剧本制作成视频成片。";
+        }
     }
 
     private String nv(String s) { return s != null ? s : "未知"; }
