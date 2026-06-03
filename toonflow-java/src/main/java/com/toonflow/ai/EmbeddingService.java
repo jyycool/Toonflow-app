@@ -3,41 +3,25 @@ package com.toonflow.ai;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-
 /**
- * 向量化服务：使用 Spring AI Alibaba (DashScope) 的 EmbeddingModel
- * 对应原项目 src/utils/agent/embedding.ts（原项目用本地 ONNX all-MiniLM-L6-v2）
+ * 向量化服务：优先使用本地 ONNX 模型（all-MiniLM-L6-v2），与原项目一致。
+ * 对应原项目 src/utils/agent/embedding.ts
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmbeddingService {
 
-    @Autowired(required = false)
-    private EmbeddingModel embeddingModel;
-
+    private final LocalEmbeddingService localEmbeddingService;
     private final ObjectMapper objectMapper;
 
     /**
-     * 生成文本向量。若 embedding 服务未配置或调用失败，返回空向量（降级）。
-     * 原始项目使用本地 ONNX 模型（all-MiniLM-L6-v2），不依赖外部 API Key。
+     * 生成文本向量。使用本地 ONNX 模型，若模型未安装则返回空向量。
      */
     public float[] embed(String text) {
-        if (embeddingModel == null) {
-            log.debug("EmbeddingModel 未配置，返回空向量");
-            return new float[0];
-        }
-        try {
-            return embeddingModel.embed(text);
-        } catch (Exception e) {
-            log.warn("Embedding 调用失败，降级为空向量（可能是 API Key 未配置）: {}", e.getMessage());
-            return new float[0];
-        }
+        return localEmbeddingService.embed(text);
     }
 
     /**
