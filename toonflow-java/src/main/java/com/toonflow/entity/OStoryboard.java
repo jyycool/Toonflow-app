@@ -15,9 +15,8 @@ public class OStoryboard {
     private String scriptId;
     private String flowId;
     private String trackId;
-    // 建表列名为 idx（规避 SQL 保留字 index）
-    @TableField("idx")
-    private Integer index;
+    // DB column name is idx (index is a reserved keyword in SQLite)
+    private Integer idx;
     private String prompt;
     private String state;
     private String filePath;

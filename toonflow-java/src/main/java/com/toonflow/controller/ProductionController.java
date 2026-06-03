@@ -147,11 +147,11 @@ public class ProductionController {
                         .forEach(r -> assets2SbMap.computeIfAbsent(r.getStoryboardId(), k -> new ArrayList<>()).add(r.getAssetId()));
             }
             List<Map<String, Object>> storyboard = storyboardData.stream()
-                    .sorted(Comparator.comparingInt(s -> s.getIndex() != null ? s.getIndex() : 0))
+                    .sorted(Comparator.comparingInt(s -> s.getIdx() != null ? s.getIdx() : 0))
                     .map(s -> {
                         Map<String, Object> m = new HashMap<>();
                         m.put("id", s.getId());
-                        m.put("index", s.getIndex());
+                        m.put("index", s.getIdx());
                         m.put("duration", s.getDuration() != null ? Double.parseDouble(s.getDuration()) : 0.0);
                         m.put("prompt", s.getPrompt());
                         m.put("associateAssetsIds", assets2SbMap.getOrDefault(s.getId(), List.of()));
@@ -192,7 +192,7 @@ public class ProductionController {
                         if (sbList.get(idx) instanceof Map<?, ?> sm && sm.get("id") != null) {
                             OStoryboard sb = new OStoryboard();
                             sb.setId(sm.get("id").toString());
-                            sb.setIndex(idx);
+                            sb.setIdx(idx);
                             storyboardMapper.updateById(sb);
                         }
                     }
@@ -226,7 +226,7 @@ public class ProductionController {
         List<OStoryboard> storyboardData = storyboardMapper.selectList(
                 new LambdaQueryWrapper<OStoryboard>()
                         .eq(OStoryboard::getScriptId, scriptId)
-                        .orderByAsc(OStoryboard::getIndex));
+                        .orderByAsc(OStoryboard::getIdx));
         if (storyboardData.isEmpty()) return R.ok(List.of());
 
         List<String> sbIds = storyboardData.stream().map(OStoryboard::getId).collect(Collectors.toList());
@@ -286,7 +286,7 @@ public class ProductionController {
                 new LambdaQueryWrapper<OStoryboard>()
                         .eq(OStoryboard::getProjectId, projectId)
                         .eq(OStoryboard::getScriptId, scriptId)
-                        .orderByAsc(OStoryboard::getIndex));
+                        .orderByAsc(OStoryboard::getIdx));
         List<String> trackIds = storyboards.stream()
                 .filter(s -> s.getTrackId() != null)
                 .map(OStoryboard::getTrackId).distinct().collect(Collectors.toList());
@@ -386,7 +386,7 @@ public class ProductionController {
                 new LambdaQueryWrapper<OStoryboard>()
                         .eq(OStoryboard::getScriptId, scriptId)
                         .eq(OStoryboard::getProjectId, projectId)
-                        .orderByAsc(OStoryboard::getIndex));
+                        .orderByAsc(OStoryboard::getIdx));
 
         // Group storyboards by trackId -> medias(image entries)
         Map<String, List<Map<String, Object>>> storyboardTrackRecord = new LinkedHashMap<>();
@@ -399,7 +399,7 @@ public class ProductionController {
             entry.put("fileType", "image");
             entry.put("sources", "storyboard");
             entry.put("id", s.getId());
-            entry.put("index", s.getIndex());
+            entry.put("index", s.getIdx());
             if (s.getVideoDesc() != null) entry.put("prompt", s.getVideoDesc());
             storyboardTrackRecord.computeIfAbsent(s.getTrackId(), k -> new ArrayList<>()).add(entry);
         }
@@ -537,7 +537,7 @@ public class ProductionController {
 
         List<Map<String, Object>> storyboardResult = storyboardList.stream().map(s -> {
             Map<String, Object> m = new HashMap<>(); m.putAll(Map.of(
-                    "id", s.getId(), "idx", s.getIndex() != null ? s.getIndex() : 0,
+                    "id", s.getId(), "idx", s.getIdx() != null ? s.getIdx() : 0,
                     "src", nvl(s.getFilePath()), "filePath", nvl(s.getFilePath()),
                     "prompt", nvl(s.getPrompt()), "videoDesc", nvl(s.getVideoDesc()),
                     "state", nvl(s.getState()), "duration", nvl(s.getDuration()),

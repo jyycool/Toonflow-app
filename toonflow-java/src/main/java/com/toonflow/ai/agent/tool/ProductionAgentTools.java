@@ -180,7 +180,7 @@ public class ProductionAgentTools {
         List<OStoryboard> sbs = storyboardMapper.selectList(
                 new LambdaQueryWrapper<OStoryboard>()
                         .eq(OStoryboard::getScriptId, scriptId)
-                        .orderByAsc(OStoryboard::getIndex));
+                        .orderByAsc(OStoryboard::getIdx));
         if (sbs.isEmpty()) return "[]";
         List<String> sbIds = sbs.stream().map(OStoryboard::getId).collect(Collectors.toList());
         Map<String, List<String>> a2sMap = new HashMap<>();
@@ -189,7 +189,7 @@ public class ProductionAgentTools {
                 .forEach(r -> a2sMap.computeIfAbsent(r.getStoryboardId(), k -> new ArrayList<>()).add(r.getAssetId()));
         List<Map<String, Object>> result = sbs.stream().map(s -> {
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("id", s.getId()); m.put("index", s.getIndex());
+            m.put("id", s.getId()); m.put("index", s.getIdx());
             m.put("duration", s.getDuration() != null ? Double.parseDouble(s.getDuration()) : 0.0);
             m.put("prompt", s.getPrompt() != null ? s.getPrompt() : "");
             m.put("associateAssetsIds", a2sMap.getOrDefault(s.getId(), List.of()));
