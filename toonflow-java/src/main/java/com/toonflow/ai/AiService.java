@@ -196,6 +196,46 @@ public class AiService {
         return result;
     }
 
+    /**
+     * 带图片的视觉理解生成（vision）
+     * @param imageUrls list of image URL strings or base64 data URIs
+     */
+    public String generateTextWithVision(String agentType, String systemPrompt, List<String> imageUrls) {
+        String modelName = resolveModelName(agentType);
+        ChatModel model = buildChatModel(modelName);
+
+        List<org.springframework.ai.content.Media> mediaList = new java.util.ArrayList<>();
+        for (String url : imageUrls) {
+            try {
+                if (url.startsWith("data:")) {
+                    // base64 data URI
+                    java.util.regex.Matcher m = java.util.regex.Pattern.compile("^data:([^;]+);base64,(.+)$").matcher(url);
+                    if (m.matches()) {
+                        String mime = m.group(1);
+                        byte[] bytes = java.util.Base64.getDecoder().decode(m.group(2));
+                        org.springframework.util.MimeType mimeType = org.springframework.util.MimeTypeUtils.parseMimeType(mime);
+                        mediaList.add(org.springframework.ai.content.Media.builder()
+                                .mimeType(mimeType).data(bytes).build());
+                    }
+                } else {
+                    mediaList.add(new org.springframework.ai.content.Media(
+                            org.springframework.util.MimeTypeUtils.IMAGE_JPEG, new java.net.URI(url)));
+                }
+            } catch (Exception e) {
+                log.warn("跳过无效图片 URL: {}", url, e);
+            }
+        }
+
+        UserMessage userMsg = UserMessage.builder()
+                .text("请分析这些图片的画风")
+                .media(mediaList)
+                .build();
+
+        List<Message> msgs = List.of(new SystemMessage(systemPrompt), userMsg);
+        ChatResponse response = model.call(new Prompt(msgs));
+        return response.getResult().getOutput().getText();
+    }
+
     public record ChatMessage(String role, String content) {
         public String getRole() { return role; }
         public String getContent() { return content; }

@@ -129,14 +129,31 @@ public class AssetsController {
     public R<Map<String, String>> delAssets(@RequestBody Map<String, Object> body) {
         String id = body.get("id") != null ? body.get("id").toString() : null;
         if (id == null) throw new BusinessException("id不能为空");
+        // Cascade: delete images for this asset, nullify imageId refs, delete child assets
+        List<OImage> images = imageMapper.selectList(
+                new LambdaQueryWrapper<OImage>().eq(OImage::getAssetsId, id));
+        if (!images.isEmpty()) {
+            List<String> imgIds = images.stream().map(OImage::getId).collect(Collectors.toList());
+            // Nullify imageId refs in other assets that point to these images
+            List<OAssets> refs = assetsMapper.selectList(
+                    new LambdaQueryWrapper<OAssets>().in(OAssets::getImageId, imgIds));
+            for (OAssets ref : refs) {
+                OAssets upd = new OAssets(); upd.setId(ref.getId()); upd.setImageId(null);
+                assetsMapper.updateById(upd);
+            }
+            imageMapper.deleteBatchIds(imgIds);
+        }
+        // Delete asset and all children (where assetsId = id)
         assetsMapper.deleteById(id);
+        assetsMapper.delete(new LambdaQueryWrapper<OAssets>().eq(OAssets::getAssetsId, id));
         return R.ok(Map.of("message", "删除素材成功"));
     }
 
     @PostMapping("/batchDelete")
     public R<Map<String, String>> batchDelete(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
-        if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
+        @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) throw new BusinessException("ids不能为空");
+        List<String> ids = rawIds.stream().map(Object::toString).collect(Collectors.toList());
         assetsMapper.deleteBatchIds(ids);
         return R.ok(Map.of("message", "批量删除成功"));
     }
@@ -147,14 +164,44 @@ public class AssetsController {
     }
 
     @PostMapping("/saveAssets")
-    public R<Map<String, String>> saveAssets(@RequestBody OAssets assets) {
-        if (assets.getId() == null) {
-            assets.setStartTime(System.currentTimeMillis());
-            assetsMapper.insert(assets);
+    public R<Map<String, String>> saveAssets(@RequestBody Map<String, Object> body) {
+        String id = body.get("id") != null ? body.get("id").toString() : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String type = body.get("type") != null ? body.get("type").toString() : null;
+        String prompt = body.get("prompt") != null ? body.get("prompt").toString() : "";
+        String imageIdParam = body.get("imageId") != null ? body.get("imageId").toString() : null;
+        String base64 = (String) body.get("base64");
+
+        if (base64 != null && !base64.isBlank()) {
+            // Write base64 image, create o_image record
+            try {
+                String raw = base64.contains(",") ? base64.substring(base64.indexOf(",") + 1) : base64;
+                byte[] bytes = java.util.Base64.getDecoder().decode(raw);
+                String savePath = "/" + projectId + "/" + (type != null ? type : "assets") + "/" +
+                        java.util.UUID.randomUUID() + ".png";
+                java.nio.file.Path dest = java.nio.file.Paths.get(
+                        System.getProperty("user.home"), ".toonflow", "oss", savePath);
+                java.nio.file.Files.createDirectories(dest.getParent());
+                java.nio.file.Files.write(dest, bytes);
+
+                OImage image = new OImage();
+                image.setAssetsId(id); image.setFilePath(savePath);
+                image.setType(type); image.setState("已完成");
+                imageMapper.insert(image);
+
+                OAssets upd = new OAssets(); upd.setId(id);
+                upd.setPrompt(prompt); upd.setImageId(image.getId());
+                assetsMapper.updateById(upd);
+            } catch (Exception e) {
+                throw new BusinessException("保存图片失败: " + e.getMessage());
+            }
         } else {
-            assetsMapper.updateById(assets);
+            OAssets upd = new OAssets(); upd.setId(id);
+            upd.setPrompt(prompt);
+            upd.setImageId(imageIdParam);
+            assetsMapper.updateById(upd);
         }
-        return R.ok(Map.of("message", "保存成功"));
+        return R.ok(Map.of("message", "保存资产图片成功"));
     }
 
     @PostMapping("/pollingImageAssets")
