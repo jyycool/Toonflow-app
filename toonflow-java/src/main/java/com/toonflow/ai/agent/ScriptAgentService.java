@@ -3,6 +3,7 @@ package com.toonflow.ai.agent;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.toonflow.ai.AiService;
 import com.toonflow.ai.MemoryService;
+import com.toonflow.ai.MemoryTools;
 import com.toonflow.ai.agent.tool.ScriptAgentTools;
 import com.toonflow.entity.ONovel;
 import com.toonflow.entity.OProject;
@@ -75,7 +76,9 @@ public class ScriptAgentService {
 
         StringBuilder fullResponse = new StringBuilder();
 
-        aiService.streamTextWithTools(AGENT_TYPE + ":decisionAgent", messages, tools)
+        MemoryTools memoryTools = new MemoryTools(memoryService, isolationKey);
+
+        aiService.streamTextWithTools(AGENT_TYPE + ":decisionAgent", messages, tools, memoryTools)
                 .subscribe(
                         chunk -> {
                             fullResponse.append(chunk);

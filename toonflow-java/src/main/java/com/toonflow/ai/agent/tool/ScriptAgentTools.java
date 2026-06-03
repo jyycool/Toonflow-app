@@ -106,6 +106,20 @@ public class ScriptAgentTools {
                 .collect(Collectors.joining("\n\n"));
     }
 
+    @Tool(name = "get_planData", description = "获取工作区数据（storySkeleton/adaptationStrategy/script）")
+    public String getPlanData(
+            @ToolParam(description = "数据key: storySkeleton | adaptationStrategy | script") String key) {
+        log.info("[tool] get_planData key={}", key);
+        Map<String, String> keyToRole = Map.of(
+                "storySkeleton", "assistant:execution:storySkeleton",
+                "adaptationStrategy", "assistant:execution:adaptationStrategy",
+                "script", "assistant:execution:script");
+        String role = keyToRole.get(key);
+        if (role == null) return "无效的 key，支持: storySkeleton, adaptationStrategy, script";
+        String content = memoryService.getLatestByRole(isolationKey, role);
+        return content != null ? content : "无数据（该阶段尚未完成）";
+    }
+
     @Tool(name = "save_script", description = "保存生成的剧本到项目")
     public String saveScript(
             @ToolParam(description = "剧本名称") String name,
@@ -216,7 +230,10 @@ public class ScriptAgentTools {
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<Throwable> subError = new AtomicReference<>();
 
-        aiService.streamText(agentKey, msgs)
+        ScriptDataQueryTools dataTools = new ScriptDataQueryTools(
+                novelMapper, scriptMapper, memoryService, projectId, isolationKey);
+
+        aiService.streamTextWithTools(agentKey, msgs, dataTools)
                 .subscribeOn(Schedulers.boundedElastic())
                 .doOnNext(chunk -> {
                     sb.append(chunk);

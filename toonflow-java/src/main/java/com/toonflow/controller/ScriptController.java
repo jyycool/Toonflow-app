@@ -25,6 +25,7 @@ public class ScriptController {
     private final OScriptMapper scriptMapper;
     private final OScriptAssetsMapper scriptAssetsMapper;
     private final com.toonflow.ai.AiService aiService;
+    private final com.toonflow.service.AssetExtractionService assetExtractionService;
 
     @PostMapping("/addScript")
     public R<Map<String, String>> addScript(@Valid @RequestBody AddScriptRequest req) {
@@ -102,16 +103,13 @@ public class ScriptController {
     public R<Map<String, String>> extractAssets(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<String> scriptIds = (List<String>) body.get("scriptIds");
-        if (scriptIds != null) {
-            for (String id : scriptIds) {
-                OScript script = scriptMapper.selectById(id);
-                if (script != null) {
-                    script.setExtractState(0);
-                    scriptMapper.updateById(script);
-                }
-            }
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        int groupSize = body.get("groupSize") instanceof Number n ? n.intValue() : 5;
+        if (scriptIds == null || scriptIds.isEmpty()) {
+            return R.fail("请先选择剧本");
         }
-        return R.ok(Map.of("message", "已提交资产提取任务"));
+        assetExtractionService.extractAssetsAsync(scriptIds, projectId, groupSize);
+        return R.ok(Map.of("message", "开始提取资产"));
     }
 
     @PostMapping("/getAiRegex")

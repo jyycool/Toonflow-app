@@ -139,6 +139,46 @@ public class MemoryService {
     }
 
     /**
+     * 深度检索记忆（keyword文本匹配 + 向量相似召回）
+     */
+    public List<Memories> deepRetrieve(String isolationKey, String keyword) {
+        // text match
+        List<Memories> results = memoriesMapper.selectList(
+                new LambdaQueryWrapper<Memories>()
+                        .eq(Memories::getIsolationKey, isolationKey)
+                        .like(Memories::getContent, keyword)
+                        .orderByDesc(Memories::getCreateTime)
+                        .last("LIMIT 10"));
+        // vector match supplement
+        float[] vec = embeddingService.embed(keyword);
+        if (vec.length > 0) {
+            List<Memories> all = memoriesMapper.selectList(
+                    new LambdaQueryWrapper<Memories>()
+                            .eq(Memories::getIsolationKey, isolationKey));
+            all.stream()
+                    .filter(m -> results.stream().noneMatch(r -> r.getId().equals(m.getId())))
+                    .sorted(Comparator.comparingDouble((Memories m) ->
+                            embeddingService.cosineSimilarity(vec, embeddingService.fromJson(m.getEmbedding()))).reversed())
+                    .limit(5)
+                    .forEach(results::add);
+        }
+        return results;
+    }
+
+    /**
+     * 获取最近一条指定 role 的记忆内容（用于 get_planData）
+     */
+    public String getLatestByRole(String isolationKey, String role) {
+        List<Memories> list = memoriesMapper.selectList(
+                new LambdaQueryWrapper<Memories>()
+                        .eq(Memories::getIsolationKey, isolationKey)
+                        .eq(Memories::getRole, role)
+                        .orderByDesc(Memories::getCreateTime)
+                        .last("LIMIT 1"));
+        return list.isEmpty() ? null : list.get(0).getContent();
+    }
+
+    /**
      * 累积到阈值时由 AI 压缩生成摘要
      */
     private void maybeSummarize(String agentType, String isolationKey) {
