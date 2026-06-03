@@ -99,28 +99,44 @@ public class GeneralController {
     }
 
     @PostMapping("/task/getTaskApi")
-    public R<Object> getTaskApi(@RequestBody Map<String, Object> body) {
+    public R<Map<String, Object>> getTaskApi(@RequestBody Map<String, Object> body) {
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
-        return R.ok(tasksMapper.selectList(
-                new LambdaQueryWrapper<OTasks>().eq(OTasks::getProjectId, projectId)
-                        .orderByDesc(OTasks::getStartTime)));
+        String state = body.get("state") != null ? body.get("state").toString() : null;
+        String taskClass = body.get("taskClass") != null ? body.get("taskClass").toString() : null;
+        int page = body.get("page") instanceof Number n ? n.intValue() : 1;
+        int limit = body.get("limit") instanceof Number n ? n.intValue() : 10;
+        int offset = (page - 1) * limit;
+
+        LambdaQueryWrapper<OTasks> q = new LambdaQueryWrapper<OTasks>().orderByDesc(OTasks::getId);
+        if (projectId != null) q.eq(OTasks::getProjectId, projectId);
+        if (state != null) q.eq(OTasks::getState, state);
+        if (taskClass != null) q.eq(OTasks::getTaskClass, taskClass);
+
+        long total = tasksMapper.selectCount(q);
+        q.last("LIMIT " + limit + " OFFSET " + offset);
+        List<OTasks> data = tasksMapper.selectList(q);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("data", data);
+        result.put("total", total);
+        return R.ok(result);
     }
 
     @PostMapping("/task/getTaskCategories")
-    public R<List<String>> getTaskCategories() {
+    public R<List<Map<String, Object>>> getTaskCategories() {
         List<OTasks> tasks = tasksMapper.selectList(
                 new LambdaQueryWrapper<OTasks>().select(OTasks::getTaskClass).groupBy(OTasks::getTaskClass));
-        List<String> categories = tasks.stream()
-                .map(OTasks::getTaskClass)
-                .filter(c -> c != null && !c.isEmpty())
-                .distinct()
-                .toList();
+        List<Map<String, Object>> categories = tasks.stream()
+                .filter(t -> t.getTaskClass() != null && !t.getTaskClass().isEmpty())
+                .map(t -> { Map<String, Object> m = new HashMap<>(); m.put("taskClass", t.getTaskClass()); return m; })
+                .collect(java.util.stream.Collectors.toList());
         return R.ok(categories);
     }
 
     @PostMapping("/task/taskDetails")
     public R<OTasks> taskDetails(@RequestBody Map<String, Object> body) {
-        String id = body.get("id") != null ? body.get("id").toString() : null;
+        String id = body.get("taskId") != null ? body.get("taskId").toString()
+                   : body.get("id") != null ? body.get("id").toString() : null;
         return R.ok(tasksMapper.selectById(id));
     }
 }
