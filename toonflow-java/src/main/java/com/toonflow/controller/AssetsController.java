@@ -159,8 +159,27 @@ public class AssetsController {
     }
 
     @PostMapping("/getImage")
-    public R<OImage> getImage(@RequestBody Map<String, Object> body) {
-        return R.ok(imageMapper.selectById(body.get("id") != null ? body.get("id").toString() : null));
+    public R<Map<String, Object>> getImage(@RequestBody Map<String, Object> body) {
+        String assetsId = body.get("assetsId") != null ? body.get("assetsId").toString() : null;
+        OAssets asset = assetsMapper.selectById(assetsId);
+        List<OImage> rawImages = imageMapper.selectList(
+                new LambdaQueryWrapper<OImage>().eq(OImage::getAssetsId, assetsId)
+                        .select(OImage::getId, OImage::getFilePath, OImage::getAssetsId, OImage::getType, OImage::getState));
+        List<Map<String, Object>> tempAssets = rawImages.stream().map(img -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", img.getId());
+            m.put("filePath", img.getFilePath() != null ? img.getFilePath() : "");
+            m.put("assetsId", img.getAssetsId());
+            m.put("type", img.getType());
+            m.put("state", img.getState());
+            m.put("selected", asset != null && asset.getImageId() != null && asset.getImageId().equals(img.getId()));
+            return m;
+        }).collect(Collectors.toList());
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", asset != null ? asset.getId() : assetsId);
+        result.put("imageId", asset != null ? asset.getImageId() : null);
+        result.put("tempAssets", tempAssets);
+        return R.ok(result);
     }
 
     @PostMapping("/saveAssets")
