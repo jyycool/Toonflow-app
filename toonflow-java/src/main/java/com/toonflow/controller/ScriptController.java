@@ -176,12 +176,13 @@ public class ScriptController {
     public R<List<OScript>> pollScriptAssets(@RequestBody Map<String, Object> body) {
         List<String> ids = toStringList(body.get("ids"));
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
-        // Return scripts that have reached a terminal state (1=success, -1=error)
-        // Excludes: null (not submitted), 2 (queued), 0 (in-progress)
+        // TS: whereNot("extractState", "生成中") — integer column never equals string, returns all rows
+        // So: return all scripts for given ids that are NOT in progress (state != 0 and != 2)
         return R.ok(scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>()
                         .in(OScript::getId, ids)
-                        .and(w -> w.eq(OScript::getExtractState, 1).or().eq(OScript::getExtractState, -1))
+                        .ne(OScript::getExtractState, 0)
+                        .ne(OScript::getExtractState, 2)
                         .select(OScript::getId, OScript::getExtractState, OScript::getErrorReason)));
     }
 

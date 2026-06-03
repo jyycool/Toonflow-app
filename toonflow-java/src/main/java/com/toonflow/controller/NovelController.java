@@ -189,11 +189,18 @@ public class NovelController {
     }
 
     @PostMapping("/event/generateEvents")
-    public R<Map<String, String>> generateEvents(@RequestBody GenerateEventsRequest req) {
+    public R<Map<String, String>> generateEvents(@RequestBody Map<String, Object> body) {
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        @SuppressWarnings("unchecked")
+        List<Object> rawNovelIds = (List<Object>) body.get("novelIds");
+        List<String> novelIds = rawNovelIds != null
+                ? rawNovelIds.stream().map(Object::toString).collect(Collectors.toList()) : List.of();
+        if (novelIds.isEmpty()) return R.ok(Map.of("message", "没有对应章节"));
+
         List<ONovel> chapters = novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>()
-                        .eq(ONovel::getProjectId, req.getProjectId())
-                        .in(ONovel::getId, req.getNovelIds()));
+                        .eq(ONovel::getProjectId, projectId)
+                        .in(ONovel::getId, novelIds));
         if (chapters.isEmpty()) return R.ok(Map.of("message", "没有对应章节"));
 
         for (ONovel novel : chapters) {
@@ -201,51 +208,52 @@ public class NovelController {
             novel.setEvent(null);
             novelMapper.updateById(novel);
         }
-        cleanNovelService.start(chapters, req.getProjectId());
+        cleanNovelService.start(chapters, projectId);
         return R.ok(Map.of("message", "已提交事件生成任务"));
     }
 
     @PostMapping("/event/getEvent")
     public R<Map<String, Object>> getEvent(@RequestBody Map<String, Object> body) {
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String search = body.get("search") != null ? body.get("search").toString() : null;
+        int page = body.get("page") instanceof Number n ? n.intValue() : 1;
+        int limit = body.get("limit") instanceof Number n ? n.intValue() : 20;
+        int offset = (page - 1) * limit;
 
         List<ONovel> novels = novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>()
                         .eq(ONovel::getProjectId, projectId)
                         .select(ONovel::getId, ONovel::getChapterIndex));
 
-        if (novels.isEmpty()) {
-            return R.ok(Map.of("list", List.of(), "total", 0));
-        }
+        if (novels.isEmpty()) return R.ok(Map.of("list", List.of(), "total", 0));
 
         Map<String, Integer> novelChapterIndexMap = novels.stream()
                 .collect(Collectors.toMap(ONovel::getId, ONovel::getChapterIndex));
         List<String> novelIds = new ArrayList<>(novelChapterIndexMap.keySet());
 
         List<OEventChapter> eventChapters = eventChapterMapper.selectList(
-                new LambdaQueryWrapper<OEventChapter>()
-                        .in(OEventChapter::getNovelId, novelIds));
+                new LambdaQueryWrapper<OEventChapter>().in(OEventChapter::getNovelId, novelIds));
 
-        if (eventChapters.isEmpty()) {
-            return R.ok(Map.of("list", List.of(), "total", 0));
-        }
+        if (eventChapters.isEmpty()) return R.ok(Map.of("list", List.of(), "total", 0));
 
         Map<String, List<Integer>> eventChapterIndexes = new LinkedHashMap<>();
         for (OEventChapter ec : eventChapters) {
             Integer chapterIndex = novelChapterIndexMap.get(ec.getNovelId());
-            if (chapterIndex != null) {
+            if (chapterIndex != null)
                 eventChapterIndexes.computeIfAbsent(ec.getEventId(), k -> new ArrayList<>()).add(chapterIndex);
-            }
         }
 
         List<String> eventIds = new ArrayList<>(eventChapterIndexes.keySet());
 
-        List<OEvent> events = eventMapper.selectList(
-                new LambdaQueryWrapper<OEvent>().in(OEvent::getId, eventIds));
+        LambdaQueryWrapper<OEvent> eventQ = new LambdaQueryWrapper<OEvent>().in(OEvent::getId, eventIds);
+        if (search != null && !search.isBlank()) eventQ.like(OEvent::getName, search);
+        List<OEvent> allEvents = eventMapper.selectList(eventQ);
+        long total = allEvents.size();
 
-        long total = events.size();
+        // Manual pagination (no native offset support without SQL)
+        List<OEvent> paged = allEvents.stream().skip(offset).limit(limit).collect(Collectors.toList());
 
-        List<Map<String, Object>> list = events.stream().map(e -> {
+        List<Map<String, Object>> list = paged.stream().map(e -> {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", e.getId());
             m.put("eventName", e.getName());
