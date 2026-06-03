@@ -13,10 +13,14 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.web.socket.WebSocketSession;
 
+import reactor.core.scheduler.Schedulers;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
@@ -204,24 +208,39 @@ public class ScriptAgentTools {
         }
         msgs.add(new AiService.ChatMessage("user", userPrompt));
 
-        // 4. Stream sub-agent response (blocking until complete)
+        // 4. Stream sub-agent response.
+        // Must NOT call blockLast() on a Reactor event-loop thread (Spring AI executes tools
+        // inside a flatMap on the reactor thread). Use CountDownLatch + subscribeOn(boundedElastic)
+        // so the blocking wait happens on a separate thread-pool thread.
         StringBuilder sb = new StringBuilder();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Throwable> subError = new AtomicReference<>();
+
+        aiService.streamText(agentKey, msgs)
+                .subscribeOn(Schedulers.boundedElastic())
+                .doOnNext(chunk -> {
+                    sb.append(chunk);
+                    Map<String, Object> payload = new HashMap<>();
+                    payload.put("messageId", subMsgId);
+                    payload.put("contentId", subContentId);
+                    payload.put("type", "text");
+                    payload.put("data", chunk);
+                    payload.put("strategy", "append");
+                    payload.put("status", "streaming");
+                    socketIoHandler.emit(session, namespace, "content:update", payload);
+                })
+                .doOnError(subError::set)
+                .doFinally(signal -> latch.countDown())
+                .subscribe();
+
         try {
-            aiService.streamText(agentKey, msgs)
-                    .doOnNext(chunk -> {
-                        sb.append(chunk);
-                        Map<String, Object> payload = new HashMap<>();
-                        payload.put("messageId", subMsgId);
-                        payload.put("contentId", subContentId);
-                        payload.put("type", "text");
-                        payload.put("data", chunk);
-                        payload.put("strategy", "append");
-                        payload.put("status", "streaming");
-                        socketIoHandler.emit(session, namespace, "content:update", payload);
-                    })
-                    .blockLast();
-        } catch (Exception e) {
-            log.error("[subAgent] {} 执行失败", agentKey, e);
+            latch.await(10, TimeUnit.MINUTES);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
+        if (subError.get() != null) {
+            log.error("[subAgent] {} 执行失败", agentKey, subError.get());
             Map<String, Object> errPayload = new HashMap<>();
             errPayload.put("messageId", subMsgId);
             errPayload.put("contentId", subContentId);
@@ -231,7 +250,8 @@ public class ScriptAgentTools {
             socketIoHandler.emit(session, namespace, "content:update", errPayload);
             socketIoHandler.emit(session, namespace, "message:update",
                     Map.of("id", subMsgId, "status", "error",
-                            "ext", Map.of("error", e.getMessage() != null ? e.getMessage() : "子Agent执行失败")));
+                            "ext", Map.of("error", subError.get().getMessage() != null
+                                    ? subError.get().getMessage() : "子Agent执行失败")));
         }
 
         // 5. Complete sub-message
