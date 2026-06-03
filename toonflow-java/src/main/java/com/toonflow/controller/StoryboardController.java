@@ -4,12 +4,14 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.toonflow.common.exception.BusinessException;
 import com.toonflow.common.result.R;
 import com.toonflow.entity.OStoryboard;
+import com.toonflow.entity.OVideoTrack;
+import com.toonflow.mapper.OAssets2StoryboardMapper;
 import com.toonflow.mapper.OStoryboardMapper;
+import com.toonflow.mapper.OVideoTrackMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -18,6 +20,8 @@ import java.util.stream.Collectors;
 public class StoryboardController {
 
     private final OStoryboardMapper storyboardMapper;
+    private final OAssets2StoryboardMapper assets2StoryboardMapper;
+    private final OVideoTrackMapper videoTrackMapper;
 
     @PostMapping("/addStoryboard")
     public R<Map<String, String>> addStoryboard(@RequestBody OStoryboard storyboard) {
@@ -64,8 +68,9 @@ public class StoryboardController {
 
     @PostMapping("/batchDelete")
     public R<Map<String, String>> batchDelete(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
-        if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
+        @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) throw new BusinessException("ids不能为空");
+        List<String> ids = rawIds.stream().map(Object::toString).collect(Collectors.toList());
         storyboardMapper.deleteBatchIds(ids);
         return R.ok(Map.of("message", "批量删除成功"));
     }
@@ -78,11 +83,25 @@ public class StoryboardController {
     }
 
     @PostMapping("/pollingImage")
-    public R<List<OStoryboard>> pollingImage(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
-        if (ids == null || ids.isEmpty()) return R.ok(List.of());
-        return R.ok(storyboardMapper.selectList(
-                new LambdaQueryWrapper<OStoryboard>().in(OStoryboard::getId, ids)));
+    public R<List<Map<String, Object>>> pollingImage(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) return R.ok(List.of());
+        List<String> ids = rawIds.stream().map(Object::toString).collect(Collectors.toList());
+        List<OStoryboard> rows = storyboardMapper.selectList(
+                new LambdaQueryWrapper<OStoryboard>()
+                        .in(OStoryboard::getId, ids)
+                        .ne(OStoryboard::getState, "生成中"));
+        List<Map<String, Object>> result = rows.stream().map(s -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", s.getId());
+            m.put("state", s.getState());
+            m.put("reason", s.getReason() != null ? s.getReason() : "");
+            m.put("filePath", s.getFilePath() != null ? s.getFilePath() : "");
+            m.put("src", s.getFilePath() != null ? s.getFilePath() : "");
+            m.put("prompt", s.getPrompt());
+            return m;
+        }).collect(Collectors.toList());
+        return R.ok(result);
     }
 
     @PostMapping("/updateStoryboardUrl")
@@ -92,19 +111,18 @@ public class StoryboardController {
     }
 
     @PostMapping("/batchAddStoryboardInfo")
-    public R<Map<String, String>> batchAddStoryboardInfo(@RequestBody Map<String, Object> body) {
+    public R<List<Map<String, Object>>> batchAddStoryboardInfo(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> data = (List<Map<String, Object>>) body.get("data");
         String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         if (data == null || data.isEmpty()) throw new BusinessException("数据不能为空");
 
-        int index = 0;
+        // Insert storyboards with associateAssetsIds
         for (Map<String, Object> item : data) {
             OStoryboard sb = new OStoryboard();
             sb.setProjectId(projectId);
             sb.setScriptId(scriptId);
-            sb.setIndex(index++);
             sb.setPrompt((String) item.get("prompt"));
             Object duration = item.get("duration");
             sb.setDuration(duration != null ? duration.toString() : null);
@@ -113,11 +131,88 @@ public class StoryboardController {
             sb.setFilePath((String) item.get("src"));
             sb.setVideoDesc((String) item.get("videoDesc"));
             Object shouldGen = item.get("shouldGenerateImage");
-            sb.setShouldGenerateImage(shouldGen != null ? (Integer) shouldGen : 0);
+            sb.setShouldGenerateImage(shouldGen instanceof Number n ? n.intValue() : 0);
             sb.setCreateTime(System.currentTimeMillis());
             storyboardMapper.insert(sb);
+            item.put("_insertedId", sb.getId());
+
+            @SuppressWarnings("unchecked")
+            List<Object> assocIds = (List<Object>) item.get("associateAssetsIds");
+            if (assocIds != null && !assocIds.isEmpty()) {
+                for (Object aid : assocIds) {
+                    com.toonflow.entity.OAssets2Storyboard a2s = new com.toonflow.entity.OAssets2Storyboard();
+                    a2s.setAssetId(aid.toString());
+                    a2s.setStoryboardId(sb.getId());
+                    assets2StoryboardMapper.insert(a2s);
+                }
+            }
         }
-        return R.ok(Map.of("message", "批量新增分镜成功"));
+
+        // Reload all storyboards for this script
+        List<OStoryboard> allStoryboards = storyboardMapper.selectList(
+                new LambdaQueryWrapper<OStoryboard>().eq(OStoryboard::getScriptId, scriptId));
+
+        // Group by track, create/reuse video tracks
+        Map<String, List<OStoryboard>> byTrack = new LinkedHashMap<>();
+        for (OStoryboard s : allStoryboards) {
+            byTrack.computeIfAbsent(s.getTrack() != null ? s.getTrack() : "", k -> new ArrayList<>()).add(s);
+        }
+
+        for (Map.Entry<String, List<OStoryboard>> entry : byTrack.entrySet()) {
+            String track = entry.getKey();
+            List<OStoryboard> trackSbs = entry.getValue();
+            double totalDuration = trackSbs.stream()
+                    .mapToDouble(s -> s.getDuration() != null ? Double.parseDouble(s.getDuration()) : 0.0).sum();
+
+            // Find existing trackId for this track name
+            OStoryboard existing = trackSbs.stream().filter(s -> s.getTrackId() != null).findFirst().orElse(null);
+            String trackId;
+            if (existing != null) {
+                trackId = existing.getTrackId();
+                OVideoTrack vt = new OVideoTrack();
+                vt.setId(trackId); vt.setDuration((int) totalDuration);
+                videoTrackMapper.updateById(vt);
+            } else {
+                trackId = String.valueOf(System.currentTimeMillis());
+                OVideoTrack vt = new OVideoTrack();
+                vt.setId(trackId); vt.setScriptId(scriptId);
+                vt.setProjectId(projectId); vt.setDuration((int) totalDuration);
+                videoTrackMapper.insert(vt);
+            }
+
+            // Update all storyboards in this track
+            List<String> sbIds = trackSbs.stream().map(OStoryboard::getId).collect(Collectors.toList());
+            final String finalTrackId = trackId;
+            storyboardMapper.selectList(new LambdaQueryWrapper<OStoryboard>().in(OStoryboard::getId, sbIds))
+                    .forEach(s -> { s.setTrackId(finalTrackId); storyboardMapper.updateById(s); });
+        }
+
+        // Reload with updated trackIds
+        List<OStoryboard> finalList = storyboardMapper.selectList(
+                new LambdaQueryWrapper<OStoryboard>().eq(OStoryboard::getScriptId, scriptId));
+        List<String> sbIds = finalList.stream().map(OStoryboard::getId).collect(Collectors.toList());
+        Map<String, List<String>> a2sMap = new HashMap<>();
+        if (!sbIds.isEmpty()) {
+            assets2StoryboardMapper.selectList(new LambdaQueryWrapper<com.toonflow.entity.OAssets2Storyboard>()
+                            .in(com.toonflow.entity.OAssets2Storyboard::getStoryboardId, sbIds))
+                    .forEach(r -> a2sMap.computeIfAbsent(r.getStoryboardId(), k -> new ArrayList<>()).add(r.getAssetId()));
+        }
+
+        List<Map<String, Object>> result = finalList.stream().map(s -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", s.getId());
+            m.put("trackId", s.getTrackId());
+            m.put("prompt", s.getPrompt());
+            m.put("duration", s.getDuration() != null ? Double.parseDouble(s.getDuration()) : 0.0);
+            m.put("state", s.getState());
+            m.put("scriptId", s.getScriptId());
+            m.put("reason", s.getReason() != null ? s.getReason() : "");
+            m.put("videoDesc", s.getVideoDesc());
+            m.put("src", s.getFilePath() != null ? s.getFilePath() : "");
+            m.put("associateAssetsIds", a2sMap.getOrDefault(s.getId(), List.of()));
+            return m;
+        }).collect(Collectors.toList());
+        return R.ok(result);
     }
 
     @PostMapping("/previewImage")

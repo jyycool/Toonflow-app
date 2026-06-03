@@ -475,7 +475,12 @@ public class AssetsController {
     @PostMapping("/delImage")
     public R<Map<String, String>> delImage(@RequestBody Map<String, Object> body) {
         String id = body.get("id") != null ? body.get("id").toString() : null;
-        if (id != null) imageMapper.deleteById(id);
+        if (id != null) {
+            // Nullify imageId references before deleting
+            assetsMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<OAssets>()
+                    .eq(OAssets::getImageId, id).set(OAssets::getImageId, null));
+            imageMapper.deleteById(id);
+        }
         return R.ok(Map.of("message", "删除图片成功"));
     }
 
