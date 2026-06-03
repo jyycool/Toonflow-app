@@ -28,6 +28,7 @@ public class SettingController {
     private final OPromptMapper promptMapper;
     private final OUserMapper userMapper;
     private final com.toonflow.mapper.MemoriesMapper memoriesMapper;
+    private final com.toonflow.ai.AiService aiService;
 
     @Value("${toonflow.data-dir}")
     private String dataDir;
@@ -335,9 +336,9 @@ public class SettingController {
     }
 
     @GetMapping("/agentDeploy/getAgentUseMode")
-    public R<Map<String, String>> getAgentUseMode() {
+    public R<String> getAgentUseMode() {
         OSetting setting = settingMapper.selectById("agentUseMode");
-        return R.ok(Map.of("mode", setting != null ? setting.getValue() : "0"));
+        return R.ok(setting != null ? setting.getValue() : "0");
     }
 
     @PostMapping("/agentDeploy/updateUseMode")
@@ -361,10 +362,31 @@ public class SettingController {
             inputValues.put("apiKey", key);
             vendor.setInputValues(objectMapper.writeValueAsString(inputValues));
             vendorConfigMapper.updateById(vendor);
+
+            // Test key and auto-configure default models
+            try {
+                aiService.generateText("universalAi", List.of(
+                        new com.toonflow.ai.AiService.ChatMessage("user", "1+1等于几？请直接回答2")));
+                // Key works — auto-configure agent models
+                updateAgentDeploy("scriptAgent", "claude-sonnet-4-6", "toonflow:claude-sonnet-4-6", "toonflow");
+                updateAgentDeploy("productionAgent", "claude-sonnet-4-6", "toonflow:claude-sonnet-4-6", "toonflow");
+                updateAgentDeploy("universalAi", "claude-haiku-4-5", "toonflow:claude-haiku-4-5-20251001", "toonflow");
+            } catch (Exception ignored) {}
         } catch (Exception e) {
             return R.fail("设置失败: " + e.getMessage());
         }
         return R.ok("一键填入成功");
+    }
+
+    private void updateAgentDeploy(String agentKey, String model, String modelName, String vendorId) {
+        OAgentDeploy deploy = agentDeployMapper.selectOne(
+                new LambdaQueryWrapper<OAgentDeploy>().eq(OAgentDeploy::getKey, agentKey).last("LIMIT 1"));
+        if (deploy != null) {
+            deploy.setModel(model);
+            deploy.setModelName(modelName);
+            deploy.setVendorId(vendorId);
+            agentDeployMapper.updateById(deploy);
+        }
     }
 
     // ========== 提示词管理 ==========
