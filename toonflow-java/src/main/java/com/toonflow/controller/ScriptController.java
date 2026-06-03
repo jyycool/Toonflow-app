@@ -120,8 +120,9 @@ public class ScriptController {
     @PostMapping("/exportScript")
     public void exportScript(@RequestBody Map<String, Object> body,
                              jakarta.servlet.http.HttpServletResponse response) throws java.io.IOException {
-        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("id");
-        if (ids == null || ids.isEmpty()) throw new BusinessException("id不能为空");
+        @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("id");
+        if (rawIds == null || rawIds.isEmpty()) throw new BusinessException("id不能为空");
+        List<String> ids = rawIds.stream().map(Object::toString).collect(Collectors.toList());
         List<OScript> scripts = scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>().in(OScript::getId, ids));
 

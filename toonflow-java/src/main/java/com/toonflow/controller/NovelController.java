@@ -174,8 +174,9 @@ public class NovelController {
     @PostMapping("/batchDeleteNovel")
     public R<Map<String, String>> batchDeleteNovel(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<String> ids = (List<String>) body.get("ids");
-        if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
+        List<Object> rawIds2 = (List<Object>) body.get("ids");
+        if (rawIds2 == null || rawIds2.isEmpty()) throw new BusinessException("ids不能为空");
+        List<String> ids = rawIds2.stream().map(Object::toString).collect(java.util.stream.Collectors.toList());
         novelMapper.deleteBatchIds(ids);
         return R.ok(Map.of("message", "批量删除成功"));
     }
@@ -271,8 +272,9 @@ public class NovelController {
 
     @PostMapping("/event/batchDeleteEvent")
     public R<Map<String, String>> batchDeleteEvent(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
-        if (ids == null || ids.isEmpty()) throw new BusinessException("ids不能为空");
+        @SuppressWarnings("unchecked") List<Object> rawEventIds = (List<Object>) body.get("ids");
+        if (rawEventIds == null || rawEventIds.isEmpty()) throw new BusinessException("ids不能为空");
+        List<String> ids = rawEventIds.stream().map(Object::toString).collect(java.util.stream.Collectors.toList());
         eventMapper.deleteBatchIds(ids);
         eventChapterMapper.delete(new LambdaQueryWrapper<OEventChapter>().in(OEventChapter::getEventId, ids));
         return R.ok(Map.of("message", "删除事件成功"));

@@ -217,8 +217,9 @@ public class StoryboardController {
 
     @PostMapping("/previewImage")
     public R<List<Map<String, Object>>> previewImage(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> storyboardIds = (List<String>) body.get("storyboardIds");
-        if (storyboardIds == null || storyboardIds.isEmpty()) return R.ok(List.of());
+        @SuppressWarnings("unchecked") List<Object> rawSbIds = (List<Object>) body.get("storyboardIds");
+        if (rawSbIds == null || rawSbIds.isEmpty()) return R.ok(List.of());
+        List<String> storyboardIds = rawSbIds.stream().map(Object::toString).collect(Collectors.toList());
 
         List<OStoryboard> storyboards = storyboardMapper.selectList(
                 new LambdaQueryWrapper<OStoryboard>().in(OStoryboard::getId, storyboardIds));

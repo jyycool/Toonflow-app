@@ -123,7 +123,8 @@ public class CornerScapeController {
     public R<Map<String, String>> updateAssetsAudio(@RequestBody Map<String, Object> body) {
         String assetsId = body.get("assetsId") != null ? body.get("assetsId").toString() : null;
         @SuppressWarnings("unchecked")
-        List<String> audioIds = (List<String>) body.get("audioIds");
+        List<Object> rawAudioIds = (List<Object>) body.get("audioIds");
+        List<String> audioIds = rawAudioIds != null ? rawAudioIds.stream().map(Object::toString).collect(java.util.stream.Collectors.toList()) : null;
         if (audioIds != null && audioIds.size() > 1) {
             throw new com.toonflow.common.exception.BusinessException("仅可绑定一个音色");
         }
