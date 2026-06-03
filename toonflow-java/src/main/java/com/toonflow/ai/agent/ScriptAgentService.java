@@ -12,18 +12,16 @@ import com.toonflow.mapper.OScriptMapper;
 import com.toonflow.websocket.SocketIoWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.socket.WebSocketSession;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 
-/**
- * 剧本 Agent 编排服务
- * 对应原项目 src/agents/scriptAgent/index.ts
- *
- * 决策 Agent 接收用户消息，结合项目信息和记忆，流式生成回复，
- * 并通过 Socket.IO 推送到客户端
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -36,101 +34,84 @@ public class ScriptAgentService {
     private final OScriptMapper scriptMapper;
     private final SocketIoWebSocketHandler socketIoHandler;
 
+    @Value("${toonflow.data-dir:${user.home}/.toonflow}")
+    private String dataDir;
+
     private static final String AGENT_TYPE = "scriptAgent";
 
-    /**
-     * 运行决策 Agent，流式推送结果
-     */
     public void runDecision(WebSocketSession session, String namespace, String sid,
                             String isolationKey, String projectId, String userText) {
-        // 1. 记录用户消息
         memoryService.add(AGENT_TYPE, isolationKey, "user", userText);
 
-        // 2. 构建记忆上下文
         MemoryService.MemoryContext mem = memoryService.get(isolationKey, userText);
         String memPrompt = memoryService.buildPrompt(mem);
-
-        // 3. 构建项目信息
         String projectInfo = buildProjectInfo(projectId);
-
-        // 4. 系统提示词（原项目从 skills/script_agent_decision.md 读取）
         String systemPrompt = loadDecisionPrompt();
 
-        // 5. 流式生成
         List<AiService.ChatMessage> messages = List.of(
                 new AiService.ChatMessage("system", systemPrompt),
                 new AiService.ChatMessage("assistant", projectInfo + "\n" + memPrompt),
                 new AiService.ChatMessage("user", userText));
 
-        StringBuilder fullResponse = new StringBuilder();
+        // Initial message
+        String initMsgId = UUID.randomUUID().toString();
+        String initContentId = UUID.randomUUID().toString();
 
-        // 创建消息 ID 和内容 ID
-        String messageId = UUID.randomUUID().toString();
-        String contentId = UUID.randomUUID().toString();
-        String datetime = new java.util.Date().toString();
-
-        // 发送 message (pending)
         socketIoHandler.emit(session, namespace, "message", Map.of(
-                "id", messageId,
-                "role", "assistant",
-                "name", "scriptAgent",
-                "status", "pending",
-                "datetime", datetime,
-                "content", new ArrayList<>()
-        ));
-
-        // 发送 content:add
+                "id", initMsgId, "role", "assistant", "name", "统筹",
+                "status", "pending", "datetime", new Date().toString(),
+                "content", new ArrayList<>()));
         socketIoHandler.emit(session, namespace, "content:add", Map.of(
-                "messageId", messageId,
-                "content", Map.of("type", "text", "id", contentId, "data", "", "status", "pending")
-        ));
+                "messageId", initMsgId,
+                "content", Map.of("type", "text", "id", initContentId, "data", "", "status", "pending")));
 
-        // 绑定当前会话的工具集，供大模型自主调用
-        ScriptAgentTools tools = new ScriptAgentTools(novelMapper, scriptMapper, projectId);
+        // Mutable state: sub-agent tools update this when they create a new parent message
+        AtomicReference<String[]> msgState = new AtomicReference<>(new String[]{initMsgId, initContentId});
+
+        ScriptAgentTools tools = new ScriptAgentTools(
+                novelMapper, scriptMapper, projectId,
+                aiService, memoryService, socketIoHandler,
+                session, namespace, isolationKey, dataDir, msgState);
+
+        StringBuilder fullResponse = new StringBuilder();
 
         aiService.streamTextWithTools(AGENT_TYPE + ":decisionAgent", messages, tools)
                 .subscribe(
                         chunk -> {
                             fullResponse.append(chunk);
+                            String[] cur = msgState.get();
                             socketIoHandler.emit(session, namespace, "content:update", Map.of(
-                                    "messageId", messageId,
-                                    "contentId", contentId,
-                                    "type", "text",
-                                    "data", chunk,
-                                    "strategy", "append",
-                                    "status", "streaming"
-                            ));
+                                    "messageId", cur[0], "contentId", cur[1],
+                                    "type", "text", "data", chunk,
+                                    "strategy", "append", "status", "streaming"));
                         },
                         error -> {
                             log.error("剧本 Agent 执行失败", error);
+                            String[] cur = msgState.get();
                             Map<String, Object> errContent = new HashMap<>();
-                            errContent.put("messageId", messageId);
-                            errContent.put("contentId", contentId);
+                            errContent.put("messageId", cur[0]);
+                            errContent.put("contentId", cur[1]);
                             errContent.put("type", "text");
                             errContent.put("data", null);
                             errContent.put("status", "error");
                             socketIoHandler.emit(session, namespace, "content:update", errContent);
                             socketIoHandler.emit(session, namespace, "message:update", Map.of(
-                                    "id", messageId,
-                                    "status", "error",
-                                    "ext", Map.of("error", error.getMessage() != null ? error.getMessage() : "未知错误")
-                            ));
+                                    "id", cur[0], "status", "error",
+                                    "ext", Map.of("error", error.getMessage() != null ? error.getMessage() : "未知错误")));
                         },
                         () -> {
-                            // 保存助手回复到记忆
                             memoryService.add(AGENT_TYPE, isolationKey, "assistant:decision",
                                     stripXmlTags(fullResponse.toString()));
+                            String[] cur = msgState.get();
                             Map<String, Object> doneContent = new HashMap<>();
-                            doneContent.put("messageId", messageId);
-                            doneContent.put("contentId", contentId);
+                            doneContent.put("messageId", cur[0]);
+                            doneContent.put("contentId", cur[1]);
                             doneContent.put("type", "text");
                             doneContent.put("data", null);
                             doneContent.put("status", "complete");
                             socketIoHandler.emit(session, namespace, "content:update", doneContent);
-                            socketIoHandler.emit(session, namespace, "message:update", Map.of(
-                                    "id", messageId,
-                                    "status", "complete"
-                            ));
+                            socketIoHandler.emit(session, namespace, "message:update",
+                                    Map.of("id", cur[0], "status", "complete"));
                         });
     }
 
@@ -138,23 +119,30 @@ public class ScriptAgentService {
         OProject project = projectMapper.selectById(projectId);
         Long novelCount = novelMapper.selectCount(
                 new LambdaQueryWrapper<ONovel>().eq(ONovel::getProjectId, projectId));
-
         return String.join("\n",
                 "## 项目信息",
-                "小说名称：" + (project != null && project.getName() != null ? project.getName() : "未知"),
-                "小说类型：" + (project != null && project.getType() != null ? project.getType() : "未知"),
-                "小说简介：" + (project != null && project.getIntro() != null ? project.getIntro() : "无"),
-                "目标改编影视视觉手册|画风：" + (project != null && project.getArtStyle() != null ? project.getArtStyle() : "无"),
+                "小说名称：" + nv(project, OProject::getName),
+                "小说类型：" + nv(project, OProject::getType),
+                "小说简介：" + nv(project, OProject::getIntro),
+                "目标改编影视视觉手册|画风：" + nv(project, OProject::getArtStyle),
                 "目标改编视频画幅：" + (project != null && project.getVideoRatio() != null ? project.getVideoRatio() : "16:9"),
                 "章节数量：" + novelCount + "章");
     }
 
+    @FunctionalInterface
+    interface Getter { String get(OProject p); }
+
+    private String nv(OProject p, Getter g) {
+        return (p != null && g.get(p) != null) ? g.get(p) : "未知";
+    }
+
     private String loadDecisionPrompt() {
-        return """
-                你是 Toonflow 的剧本改编决策 Agent。你的职责是协助用户将小说改编为短剧/漫剧剧本。
-                你需要理解用户意图，结合项目信息和历史记忆，给出专业的改编建议和决策。
-                改编时关注：故事骨架、人物塑造、节奏控制、视觉呈现。
-                """;
+        try {
+            return Files.readString(Paths.get(dataDir, "skills", "script_agent_decision.md"));
+        } catch (IOException e) {
+            log.warn("无法读取 script_agent_decision.md: {}", e.getMessage());
+            return "你是 Toonflow 的剧本改编决策 Agent，协助用户将小说改编为短剧/漫剧剧本。";
+        }
     }
 
     private String stripXmlTags(String text) {
