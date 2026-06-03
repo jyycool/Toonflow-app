@@ -617,24 +617,54 @@ public class ProductionController {
     // ========== 图片编辑 ==========
 
     @PostMapping("/editImage/getImageFlow")
-    public R<OImageFlow> getImageFlow(@RequestBody Map<String, Object> body) {
+    public R<Object> getImageFlow(@RequestBody Map<String, Object> body) {
         String id = body.get("id") != null ? body.get("id").toString() : null;
-        return R.ok(imageFlowMapper.selectById(id));
+        OImageFlow flow = imageFlowMapper.selectById(id);
+        if (flow == null || flow.getFlowData() == null) return R.ok(null);
+        try {
+            // TS parses flowData JSON and returns {...nodes, edges, id}
+            com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+            @SuppressWarnings("unchecked")
+            Map<String, Object> parsed = om.readValue(flow.getFlowData(), Map.class);
+            parsed.put("id", flow.getId());
+            return R.ok(parsed);
+        } catch (Exception e) {
+            return R.ok(null);
+        }
     }
 
     @PostMapping("/editImage/saveImageFlow")
-    public R<Map<String, Object>> saveImageFlow(@RequestBody OImageFlow flow) {
-        if (flow.getId() == null) {
+    public R<Map<String, Object>> saveImageFlow(@RequestBody Map<String, Object> body) {
+        // TS accepts {edges, nodes}, serializes to flowData, returns {id}
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+            Map<String, Object> flowMap = new HashMap<>();
+            flowMap.put("edges", body.get("edges"));
+            flowMap.put("nodes", body.get("nodes"));
+            OImageFlow flow = new OImageFlow();
+            flow.setFlowData(om.writeValueAsString(flowMap));
             imageFlowMapper.insert(flow);
-        } else {
-            imageFlowMapper.updateById(flow);
+            return R.ok(Map.of("id", flow.getId()));
+        } catch (Exception e) {
+            throw new com.toonflow.common.exception.BusinessException("保存失败: " + e.getMessage());
         }
-        return R.ok(Map.of("id", flow.getId()));
     }
 
     @PostMapping("/editImage/updateImageFlow")
-    public R<Map<String, String>> updateImageFlow(@RequestBody OImageFlow flow) {
-        imageFlowMapper.updateById(flow);
+    public R<Map<String, String>> updateImageFlow(@RequestBody Map<String, Object> body) {
+        String flowId = body.get("flowId") != null ? body.get("flowId").toString() : null;
+        try {
+            com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+            Map<String, Object> flowMap = new HashMap<>();
+            flowMap.put("edges", body.get("edges"));
+            flowMap.put("nodes", body.get("nodes"));
+            OImageFlow flow = new OImageFlow();
+            flow.setId(flowId);
+            flow.setFlowData(om.writeValueAsString(flowMap));
+            imageFlowMapper.updateById(flow);
+        } catch (Exception e) {
+            throw new com.toonflow.common.exception.BusinessException("更新失败: " + e.getMessage());
+        }
         return R.ok(Map.of("message", "更新成功"));
     }
 

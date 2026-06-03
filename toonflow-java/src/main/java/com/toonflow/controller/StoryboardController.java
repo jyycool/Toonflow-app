@@ -3,9 +3,11 @@ package com.toonflow.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.toonflow.common.exception.BusinessException;
 import com.toonflow.common.result.R;
+import com.toonflow.entity.OImageFlow;
 import com.toonflow.entity.OStoryboard;
 import com.toonflow.entity.OVideoTrack;
 import com.toonflow.mapper.OAssets2StoryboardMapper;
+import com.toonflow.mapper.OImageFlowMapper;
 import com.toonflow.mapper.OStoryboardMapper;
 import com.toonflow.mapper.OVideoTrackMapper;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ public class StoryboardController {
     private final OStoryboardMapper storyboardMapper;
     private final OAssets2StoryboardMapper assets2StoryboardMapper;
     private final OVideoTrackMapper videoTrackMapper;
+    private final OImageFlowMapper imageFlowMapper;
 
     @PostMapping("/addStoryboard")
     public R<Map<String, String>> addStoryboard(@RequestBody OStoryboard storyboard) {
@@ -69,17 +72,40 @@ public class StoryboardController {
     @PostMapping("/batchDelete")
     public R<Map<String, String>> batchDelete(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("ids");
-        if (rawIds == null || rawIds.isEmpty()) throw new BusinessException("ids不能为空");
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        if (rawIds == null || rawIds.isEmpty()) throw new BusinessException("请先选择分镜");
         List<String> ids = rawIds.stream().map(Object::toString).collect(Collectors.toList());
-        storyboardMapper.deleteBatchIds(ids);
-        return R.ok(Map.of("message", "批量删除成功"));
+        LambdaQueryWrapper<OStoryboard> q = new LambdaQueryWrapper<OStoryboard>().in(OStoryboard::getId, ids);
+        if (projectId != null) q.eq(OStoryboard::getProjectId, projectId);
+        List<OStoryboard> sbList = storyboardMapper.selectList(q);
+        if (sbList.isEmpty()) throw new BusinessException("当前选择分镜不存在");
+        // Delete associated imageFlow records
+        List<String> flowIds = sbList.stream().filter(s -> s.getFlowId() != null).map(OStoryboard::getFlowId).collect(Collectors.toList());
+        if (!flowIds.isEmpty()) flowIds.forEach(fid -> imageFlowMapper.deleteById(fid));
+        List<String> sbIds = sbList.stream().map(OStoryboard::getId).collect(Collectors.toList());
+        storyboardMapper.deleteBatchIds(sbIds);
+        assets2StoryboardMapper.delete(new LambdaQueryWrapper<com.toonflow.entity.OAssets2Storyboard>()
+                .in(com.toonflow.entity.OAssets2Storyboard::getStoryboardId, sbIds));
+        return R.ok(Map.of("message", "视频删除成功"));
     }
 
     @PostMapping("/removeFrame")
     public R<Map<String, String>> removeFrame(@RequestBody Map<String, Object> body) {
         String id = body.get("id") != null ? body.get("id").toString() : null;
+        OStoryboard sb = storyboardMapper.selectById(id);
+        if (sb == null) throw new BusinessException("未找到该分镜");
+        // Delete imageFlow if linked
+        if (sb.getFlowId() != null) imageFlowMapper.deleteById(sb.getFlowId());
+        // If this is the only storyboard in the track, delete the track too
+        if (sb.getTrack() != null) {
+            long trackCount = storyboardMapper.selectCount(
+                    new LambdaQueryWrapper<OStoryboard>().eq(OStoryboard::getTrack, sb.getTrack()));
+            if (trackCount == 1 && sb.getTrackId() != null) videoTrackMapper.deleteById(sb.getTrackId());
+        }
         storyboardMapper.deleteById(id);
-        return R.ok(Map.of("message", "删除成功"));
+        assets2StoryboardMapper.delete(new LambdaQueryWrapper<com.toonflow.entity.OAssets2Storyboard>()
+                .eq(com.toonflow.entity.OAssets2Storyboard::getStoryboardId, id));
+        return R.ok(Map.of("message", "视频删除成功"));
     }
 
     @PostMapping("/pollingImage")
