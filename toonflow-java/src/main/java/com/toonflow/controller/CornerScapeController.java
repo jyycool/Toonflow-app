@@ -11,10 +11,8 @@ import com.toonflow.mapper.OImageMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/cornerScape")
@@ -40,6 +38,29 @@ public class CornerScapeController {
             wrapper.in(OAssets::getType, types);
         }
         List<OAssets> assets = assetsMapper.selectList(wrapper);
+        if (assets.isEmpty()) return R.ok(List.of());
+
+        List<String> assetIds = assets.stream().map(OAssets::getId).collect(Collectors.toList());
+
+        // relepedAudio: o_assetsRole2Audio join o_assets grouped by assetsRoleId
+        List<OAssetsRole2Audio> audioBindings = role2AudioMapper.selectList(
+                new LambdaQueryWrapper<OAssetsRole2Audio>().in(OAssetsRole2Audio::getAssetsRoleId, assetIds));
+        Map<String, List<Map<String, Object>>> relepedAudioMap = new HashMap<>();
+        if (!audioBindings.isEmpty()) {
+            List<String> audioAssetIds = audioBindings.stream()
+                    .map(OAssetsRole2Audio::getAssetsAudioId).distinct().collect(Collectors.toList());
+            List<OAssets> audioAssets = assetsMapper.selectList(
+                    new LambdaQueryWrapper<OAssets>().in(OAssets::getId, audioAssetIds)
+                            .select(OAssets::getId, OAssets::getName));
+            Map<String, String> audioIdToName = audioAssets.stream()
+                    .collect(Collectors.toMap(OAssets::getId, a -> a.getName() != null ? a.getName() : ""));
+            for (OAssetsRole2Audio bind : audioBindings) {
+                Map<String, Object> entry = new HashMap<>();
+                entry.put("id", bind.getAssetsAudioId());
+                entry.put("name", audioIdToName.getOrDefault(bind.getAssetsAudioId(), ""));
+                relepedAudioMap.computeIfAbsent(bind.getAssetsRoleId(), k -> new ArrayList<>()).add(entry);
+            }
+        }
 
         List<Map<String, Object>> result = assets.stream()
                 .sorted(Comparator.comparingInt(a -> typeOrder(a.getType())))
@@ -50,7 +71,12 @@ public class CornerScapeController {
                     m.put("type", a.getType());
                     m.put("describe", a.getDescribe());
                     m.put("prompt", a.getPrompt());
+                    m.put("promptState", a.getPromptState());
+                    m.put("promptErrorReason", a.getPromptErrorReason());
+                    m.put("remark", a.getRemark());
+                    m.put("assetsId", a.getAssetsId());
                     m.put("imageId", a.getImageId());
+                    // image fields from joined o_image
                     if (a.getImageId() != null) {
                         OImage img = imageMapper.selectById(a.getImageId());
                         if (img != null) {
@@ -61,9 +87,24 @@ public class CornerScapeController {
                             m.put("errorReason", img.getErrorReason());
                         }
                     }
+                    // historyImages: completed images for this asset
+                    List<OImage> historyImgs = imageMapper.selectList(
+                            new LambdaQueryWrapper<OImage>()
+                                    .eq(OImage::getAssetsId, a.getId())
+                                    .eq(OImage::getState, "已完成")
+                                    .select(OImage::getId, OImage::getFilePath));
+                    List<Map<String, Object>> historyImages = historyImgs.stream().map(img -> {
+                        Map<String, Object> imgMap = new HashMap<>();
+                        imgMap.put("id", img.getId());
+                        imgMap.put("filePath", img.getFilePath());
+                        return imgMap;
+                    }).collect(Collectors.toList());
+                    m.put("historyImages", historyImages);
+                    // relepedAudio
+                    m.put("relepedAudio", relepedAudioMap.getOrDefault(a.getId(), List.of()));
                     return m;
                 })
-                .toList();
+                .collect(Collectors.toList());
         return R.ok(result);
     }
 
