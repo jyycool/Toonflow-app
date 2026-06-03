@@ -103,13 +103,13 @@ public class ScriptAgentService {
                         },
                         error -> {
                             log.error("剧本 Agent 执行失败", error);
-                            socketIoHandler.emit(session, namespace, "content:update", Map.of(
-                                    "messageId", messageId,
-                                    "contentId", contentId,
-                                    "type", "text",
-                                    "data", (Object) null,
-                                    "status", "error"
-                            ));
+                            Map<String, Object> errContent = new HashMap<>();
+                            errContent.put("messageId", messageId);
+                            errContent.put("contentId", contentId);
+                            errContent.put("type", "text");
+                            errContent.put("data", null);
+                            errContent.put("status", "error");
+                            socketIoHandler.emit(session, namespace, "content:update", errContent);
                             socketIoHandler.emit(session, namespace, "message:update", Map.of(
                                     "id", messageId,
                                     "status", "error",
@@ -120,13 +120,13 @@ public class ScriptAgentService {
                             // 保存助手回复到记忆
                             memoryService.add(AGENT_TYPE, isolationKey, "assistant:decision",
                                     stripXmlTags(fullResponse.toString()));
-                            socketIoHandler.emit(session, namespace, "content:update", Map.of(
-                                    "messageId", messageId,
-                                    "contentId", contentId,
-                                    "type", "text",
-                                    "data", (Object) null,
-                                    "status", "complete"
-                            ));
+                            Map<String, Object> doneContent = new HashMap<>();
+                            doneContent.put("messageId", messageId);
+                            doneContent.put("contentId", contentId);
+                            doneContent.put("type", "text");
+                            doneContent.put("data", null);
+                            doneContent.put("status", "complete");
+                            socketIoHandler.emit(session, namespace, "content:update", doneContent);
                             socketIoHandler.emit(session, namespace, "message:update", Map.of(
                                     "id", messageId,
                                     "status", "complete"
