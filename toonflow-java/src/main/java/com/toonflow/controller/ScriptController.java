@@ -3,8 +3,10 @@ package com.toonflow.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.toonflow.common.exception.BusinessException;
 import com.toonflow.common.result.R;
+import com.toonflow.entity.OAssets;
 import com.toonflow.entity.OScript;
 import com.toonflow.entity.OScriptAssets;
+import com.toonflow.mapper.OAssetsMapper;
 import com.toonflow.mapper.OScriptAssetsMapper;
 import com.toonflow.mapper.OScriptMapper;
 import jakarta.validation.Valid;
@@ -25,6 +27,7 @@ public class ScriptController {
 
     private final OScriptMapper scriptMapper;
     private final OScriptAssetsMapper scriptAssetsMapper;
+    private final OAssetsMapper assetsMapper;
     private final com.toonflow.ai.AiService aiService;
     private final com.toonflow.service.AssetExtractionService assetExtractionService;
 
@@ -56,10 +59,46 @@ public class ScriptController {
     @PostMapping("/getScrptApi")
     public R<List<OScript>> getScript(@RequestBody Map<String, Object> body) {
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
-        List<OScript> list = scriptMapper.selectList(
-                new LambdaQueryWrapper<OScript>()
-                        .eq(OScript::getProjectId, projectId)
-                        .orderByAsc(OScript::getCreateTime));
+        String name = body.get("name") != null ? body.get("name").toString() : null;
+        LambdaQueryWrapper<OScript> q = new LambdaQueryWrapper<OScript>()
+                .eq(OScript::getProjectId, projectId)
+                .orderByAsc(OScript::getCreateTime);
+        if (name != null && !name.isBlank()) {
+            q.like(OScript::getName, name);
+        }
+        List<OScript> list = scriptMapper.selectList(q);
+        if (list.isEmpty()) return R.ok(list);
+
+        // Fetch relatedAssets: o_scriptAssets join o_assets
+        List<String> scriptIds = list.stream().map(OScript::getId).collect(Collectors.toList());
+        List<OScriptAssets> relations = scriptAssetsMapper.selectList(
+                new LambdaQueryWrapper<OScriptAssets>().in(OScriptAssets::getScriptId, scriptIds));
+
+        if (!relations.isEmpty()) {
+            List<String> assetIds = relations.stream().map(OScriptAssets::getAssetId).distinct().collect(Collectors.toList());
+            List<OAssets> assets = assetsMapper.selectList(
+                    new LambdaQueryWrapper<OAssets>().in(OAssets::getId, assetIds)
+                            .select(OAssets::getId, OAssets::getName));
+            Map<String, String> assetIdToName = assets.stream()
+                    .collect(Collectors.toMap(OAssets::getId, a -> a.getName() != null ? a.getName() : ""));
+
+            // Group by scriptId
+            Map<String, List<Map<String, Object>>> assetsByScript = relations.stream()
+                    .filter(r -> assetIdToName.containsKey(r.getAssetId()))
+                    .collect(Collectors.groupingBy(
+                            OScriptAssets::getScriptId,
+                            Collectors.mapping(r -> {
+                                Map<String, Object> m = new java.util.HashMap<>();
+                                m.put("id", r.getAssetId());
+                                m.put("name", assetIdToName.get(r.getAssetId()));
+                                return m;
+                            }, Collectors.toList())));
+
+            list.forEach(s -> s.setRelatedAssets(assetsByScript.getOrDefault(s.getId(), List.of())));
+        } else {
+            list.forEach(s -> s.setRelatedAssets(List.of()));
+        }
+
         return R.ok(list);
     }
 
