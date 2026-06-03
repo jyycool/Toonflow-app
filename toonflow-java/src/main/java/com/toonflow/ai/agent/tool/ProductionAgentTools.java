@@ -34,6 +34,7 @@ public class ProductionAgentTools {
     private final OAgentWorkDataMapper agentWorkDataMapper;
     private final OImageMapper imageMapper;
     private final OAssets2StoryboardMapper assets2StoryboardMapper;
+    private final OScriptMapper scriptMapper;
     private final MediaGenerationService mediaGenerationService;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private final String projectId;
@@ -53,7 +54,7 @@ public class ProductionAgentTools {
     public ProductionAgentTools(OAssetsMapper assetsMapper, OScriptAssetsMapper scriptAssetsMapper,
                                 OStoryboardMapper storyboardMapper, OImageFlowMapper imageFlowMapper,
                                 OAgentWorkDataMapper agentWorkDataMapper, OImageMapper imageMapper,
-                                OAssets2StoryboardMapper assets2StoryboardMapper,
+                                OAssets2StoryboardMapper assets2StoryboardMapper, OScriptMapper scriptMapper,
                                 MediaGenerationService mediaGenerationService,
                                 String projectId, String scriptId, String imageModel,
                                 AiService aiService, MemoryService memoryService,
@@ -67,6 +68,7 @@ public class ProductionAgentTools {
         this.agentWorkDataMapper = agentWorkDataMapper;
         this.imageMapper = imageMapper;
         this.assets2StoryboardMapper = assets2StoryboardMapper;
+        this.scriptMapper = scriptMapper;
         this.mediaGenerationService = mediaGenerationService;
         this.projectId = projectId;
         this.scriptId = scriptId;
@@ -104,8 +106,15 @@ public class ProductionAgentTools {
             if ("storyboard".equals(key)) {
                 return buildStoryboardJson();
             }
+            // script content always comes from o_script directly
+            if ("script".equals(key)) {
+                if (scriptId == null) return "（暂无剧本）";
+                OScript script = scriptMapper.selectById(scriptId);
+                String content = script != null && script.getContent() != null ? script.getContent() : "";
+                return content.isEmpty() ? "（暂无剧本内容）" : content;
+            }
 
-            // For other keys, read from saved workData
+            // For scriptPlan / storyboardTable: read from saved workData
             if (workData == null || workData.getData() == null) {
                 return "（暂无数据）";
             }

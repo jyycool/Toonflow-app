@@ -35,6 +35,7 @@ public class ProductionAgentService {
     private final OAgentWorkDataMapper agentWorkDataMapper;
     private final OImageMapper imageMapper;
     private final OAssets2StoryboardMapper assets2StoryboardMapper;
+    private final OScriptMapper scriptMapper;
     private final MediaGenerationService mediaGenerationService;
     private final SocketIoWebSocketHandler socketIoHandler;
 
@@ -80,7 +81,7 @@ public class ProductionAgentService {
 
         ProductionAgentTools tools = new ProductionAgentTools(
                 assetsMapper, scriptAssetsMapper, storyboardMapper, imageFlowMapper,
-                agentWorkDataMapper, imageMapper, assets2StoryboardMapper,
+                agentWorkDataMapper, imageMapper, assets2StoryboardMapper, scriptMapper,
                 mediaGenerationService, projectId, scriptId, imageModel,
                 aiService, memoryService, socketIoHandler,
                 session, namespace, isolationKey, dataDir, msgState);
