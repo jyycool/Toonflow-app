@@ -24,14 +24,20 @@ public class EmbeddingService {
     private final ObjectMapper objectMapper;
 
     /**
-     * 生成文本向量
+     * 生成文本向量。若 embedding 服务未配置或调用失败，返回空向量（降级）。
+     * 原始项目使用本地 ONNX 模型（all-MiniLM-L6-v2），不依赖外部 API Key。
      */
     public float[] embed(String text) {
         if (embeddingModel == null) {
-            log.warn("EmbeddingModel 未配置，返回空向量");
+            log.debug("EmbeddingModel 未配置，返回空向量");
             return new float[0];
         }
-        return embeddingModel.embed(text);
+        try {
+            return embeddingModel.embed(text);
+        } catch (Exception e) {
+            log.warn("Embedding 调用失败，降级为空向量（可能是 API Key 未配置）: {}", e.getMessage());
+            return new float[0];
+        }
     }
 
     /**
