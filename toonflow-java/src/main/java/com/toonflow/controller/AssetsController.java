@@ -244,18 +244,56 @@ public class AssetsController {
     @PostMapping("/addAudioAssets")
     public R<Map<String, String>> addAudioAssets(@RequestBody Map<String, Object> body) {
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String name = body.get("name") != null ? body.get("name").toString() : "";
+        String describe = body.get("describe") != null ? body.get("describe").toString() : "";
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("assetsItem");
+
+        // Create parent asset
+        OAssets parent = new OAssets();
+        parent.setProjectId(projectId); parent.setName(name);
+        parent.setDescribe(describe); parent.setType("audio");
+        parent.setStartTime(System.currentTimeMillis());
+        assetsMapper.insert(parent);
+
         if (items != null) {
             for (Map<String, Object> item : items) {
-                OAssets asset = new OAssets();
-                asset.setProjectId(projectId);
-                asset.setType("audio");
-                asset.setName((String) item.get("name"));
-                asset.setDescribe((String) item.get("describe"));
-                asset.setPrompt((String) item.get("prompt"));
-                asset.setStartTime(System.currentTimeMillis());
-                assetsMapper.insert(asset);
+                String base64 = (String) item.get("base64");
+                String src = null;
+                if (base64 != null && !base64.isBlank()) {
+                    try {
+                        // Detect extension from MIME
+                        String ext = "mp3";
+                        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^data:audio/([^;]+);base64,").matcher(base64);
+                        if (m.find()) {
+                            String mimeExt = m.group(1);
+                            ext = switch (mimeExt) { case "mpeg" -> "mp3"; case "x-wav" -> "wav"; default -> mimeExt; };
+                        }
+                        String raw = base64.contains(",") ? base64.substring(base64.indexOf(",") + 1) : base64;
+                        byte[] bytes = java.util.Base64.getDecoder().decode(raw);
+                        src = "/" + projectId + "/assets/audio/" + java.util.UUID.randomUUID() + "." + ext;
+                        java.nio.file.Path dest = java.nio.file.Paths.get(
+                                System.getProperty("user.home"), ".toonflow", "oss", src);
+                        java.nio.file.Files.createDirectories(dest.getParent());
+                        java.nio.file.Files.write(dest, bytes);
+                    } catch (Exception e) {
+                        // skip bad base64
+                    }
+                }
+                // Create child asset with parent ref
+                OAssets child = new OAssets();
+                child.setProjectId(projectId); child.setAssetsId(parent.getId());
+                child.setType("audio"); child.setName((String) item.get("name"));
+                child.setDescribe((String) item.get("describe")); child.setPrompt((String) item.get("prompt"));
+                child.setStartTime(System.currentTimeMillis());
+                assetsMapper.insert(child);
+                // Create o_image record for the audio file
+                OImage img = new OImage();
+                img.setFilePath(src); img.setType("audio");
+                img.setAssetsId(child.getId()); img.setState("已完成");
+                imageMapper.insert(img);
+                child.setImageId(img.getId());
+                assetsMapper.updateById(child);
             }
         }
         return R.ok(Map.of("message", "新增音频素材成功"));

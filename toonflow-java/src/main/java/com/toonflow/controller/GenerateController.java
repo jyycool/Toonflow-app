@@ -24,10 +24,13 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 import java.util.concurrent.Executors;
 
 @Slf4j
@@ -43,12 +46,13 @@ public class GenerateController {
     private final OAssetsMapper assetsMapper;
     private final OImageMapper imageMapper;
     private final OProjectMapper projectMapper;
+    private final com.toonflow.mapper.OAssets2StoryboardMapper assets2StoryboardMapper;
 
     @org.springframework.beans.factory.annotation.Value("${toonflow.data-dir:${user.home}/.toonflow}")
     private String dataDir;
 
     @PostMapping("/production/storyboard/batchGenerateImage")
-    public R<Map<String, String>> batchGenerateImage(@RequestBody BatchGenImageRequest req) {
+    public R<List<Map<String, Object>>> batchGenerateImage(@RequestBody BatchGenImageRequest req) {
         if (req.getStoryboardIds() == null || req.getStoryboardIds().isEmpty()) {
             throw new BusinessException("storyboardIds不能为空");
         }
@@ -59,19 +63,53 @@ public class GenerateController {
                         .in(OStoryboard::getId, req.getStoryboardIds()));
         if (storyboards.isEmpty()) throw new BusinessException("未查到分镜数据");
 
-        for (OStoryboard sb : storyboards) {
-            sb.setState("生成中");
-            sb.setShouldGenerateImage(1);
-            storyboardMapper.updateById(sb);
+        boolean compulsory = Boolean.TRUE.equals(req.getCompulsory());
+        if (compulsory) {
+            for (OStoryboard sb : storyboards) {
+                sb.setState("生成中"); sb.setShouldGenerateImage(1);
+                storyboardMapper.updateById(sb);
+            }
+        } else {
+            for (OStoryboard sb : storyboards) {
+                if (sb.getShouldGenerateImage() != null && sb.getShouldGenerateImage() == 0) {
+                    sb.setState("未生成");
+                } else {
+                    sb.setState("生成中");
+                }
+                storyboardMapper.updateById(sb);
+            }
         }
+
+        // Load associateAssetsIds per storyboard (from o_assets2Storyboard)
+        List<String> sbIds = storyboards.stream().map(OStoryboard::getId).collect(Collectors.toList());
+        List<com.toonflow.entity.OAssets2Storyboard> a2sList = assets2StoryboardMapper.selectList(
+                new LambdaQueryWrapper<com.toonflow.entity.OAssets2Storyboard>()
+                        .in(com.toonflow.entity.OAssets2Storyboard::getStoryboardId, sbIds));
+        Map<String, List<String>> assetRecord = new HashMap<>();
+        for (com.toonflow.entity.OAssets2Storyboard r : a2sList) {
+            assetRecord.computeIfAbsent(r.getStoryboardId(), k -> new ArrayList<>()).add(r.getAssetId());
+        }
+
+        List<Map<String, Object>> response = storyboards.stream().map(sb -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", sb.getId());
+            m.put("prompt", sb.getPrompt());
+            m.put("associateAssetsIds", assetRecord.getOrDefault(sb.getId(), List.of()));
+            m.put("src", null);
+            m.put("state", sb.getState());
+            m.put("videoDesc", sb.getVideoDesc());
+            m.put("shouldGenerateImage", sb.getShouldGenerateImage());
+            return m;
+        }).collect(Collectors.toList());
 
         OProject project = projectMapper.selectById(req.getProjectId());
         String imageModel = project != null ? project.getImageModel() : null;
         String size = resolveSize(project != null ? project.getVideoRatio() : "16:9");
+        List<OStoryboard> toGenerate = compulsory ? storyboards :
+                storyboards.stream().filter(sb -> sb.getShouldGenerateImage() == null || sb.getShouldGenerateImage() != 0).collect(Collectors.toList());
+        asyncGenerateStoryboards(toGenerate, imageModel, size, req.getProjectId());
 
-        asyncGenerateStoryboards(storyboards, imageModel, size, req.getProjectId());
-
-        return R.ok(Map.of("message", "已提交生成任务"));
+        return R.ok(response);
     }
 
     @Async
