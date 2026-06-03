@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/script")
@@ -101,8 +102,7 @@ public class ScriptController {
 
     @PostMapping("/extractAssets")
     public R<Map<String, String>> extractAssets(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked")
-        List<String> scriptIds = (List<String>) body.get("scriptIds");
+        List<String> scriptIds = toStringList(body.get("scriptIds"));
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         int groupSize = body.get("groupSize") instanceof Number n ? n.intValue() : 5;
         if (scriptIds == null || scriptIds.isEmpty()) {
@@ -134,13 +134,22 @@ public class ScriptController {
 
     @PostMapping("/pollScriptAssets")
     public R<List<OScript>> pollScriptAssets(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
+        List<String> ids = toStringList(body.get("ids"));
         if (ids == null || ids.isEmpty()) return R.ok(List.of());
+        // Return scripts that have reached a terminal state (1=success, -1=error)
+        // Excludes: null (not submitted), 2 (queued), 0 (in-progress)
         return R.ok(scriptMapper.selectList(
                 new LambdaQueryWrapper<OScript>()
                         .in(OScript::getId, ids)
-                        .ne(OScript::getExtractState, 0)
+                        .and(w -> w.eq(OScript::getExtractState, 1).or().eq(OScript::getExtractState, -1))
                         .select(OScript::getId, OScript::getExtractState, OScript::getErrorReason)));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static List<String> toStringList(Object raw) {
+        if (raw == null) return null;
+        List list = (List) raw;
+        return (List<String>) list.stream().map(Object::toString).collect(Collectors.toList());
     }
 
     @Data
