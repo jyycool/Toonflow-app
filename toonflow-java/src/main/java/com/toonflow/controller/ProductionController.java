@@ -296,27 +296,40 @@ public class ProductionController {
     }
 
     @PostMapping("/workbench/addTrack")
-    public R<Map<String, String>> addTrack(@RequestBody OVideoTrack track) {
+    public R<String> addTrack(@RequestBody Map<String, Object> body) {
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
+        Integer duration = body.get("duration") instanceof Number n ? n.intValue() : null;
+        // TS uses timestamp as id
+        String trackId = String.valueOf(System.currentTimeMillis());
+        OVideoTrack track = new OVideoTrack();
+        track.setId(trackId); track.setProjectId(projectId);
+        track.setScriptId(scriptId); track.setDuration(duration);
         videoTrackMapper.insert(track);
-        return R.ok(Map.of("message", "添加轨道成功"));
+        return R.ok(trackId);
     }
 
     @PostMapping("/workbench/deleteTrack")
     public R<Map<String, String>> deleteTrack(@RequestBody Map<String, Object> body) {
         String id = body.get("id") != null ? body.get("id").toString() : null;
         videoTrackMapper.deleteById(id);
-        return R.ok(Map.of("message", "删除轨道成功"));
+        // Null out trackId on storyboards that referenced this track
+        storyboardMapper.selectList(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<OStoryboard>()
+                .eq(OStoryboard::getTrackId, id))
+                .forEach(sb -> { sb.setTrackId(null); storyboardMapper.updateById(sb); });
+        return R.ok(Map.of("message", "视频段删除成功"));
     }
 
     @PostMapping("/workbench/selectVideo")
     public R<Map<String, String>> selectVideo(@RequestBody Map<String, Object> body) {
         String trackId = body.get("trackId") != null ? body.get("trackId").toString() : null;
+        String videoId = body.get("videoId") != null ? body.get("videoId").toString() : null;
         OVideoTrack track = videoTrackMapper.selectById(trackId);
         if (track != null) {
-            track.setSelectVideoId(body.get("videoId") != null ? body.get("videoId").toString() : null);
+            track.setVideoId(videoId);  // TS updates videoId column, not selectVideoId
             videoTrackMapper.updateById(track);
         }
-        return R.ok(Map.of("message", "选择视频成功"));
+        return R.ok(Map.of("message", "视频选择成功"));
     }
 
     @PostMapping("/workbench/delVideo")

@@ -14,6 +14,7 @@ import com.toonflow.mapper.OVideoTrackMapper;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.*;
@@ -28,6 +29,9 @@ public class AssetsController {
     private final OImageMapper imageMapper;
     private final OVideoTrackMapper videoTrackMapper;
     private final OVideoMapper videoMapper;
+
+    @Value("${toonflow.data-dir}")
+    private String dataDir;
 
     @PostMapping("/addAssets")
     public R<Map<String, String>> addAssets(@RequestBody OAssets assets) {
@@ -151,11 +155,13 @@ public class AssetsController {
 
     @PostMapping("/batchDelete")
     public R<Map<String, String>> batchDelete(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("ids");
-        if (rawIds == null || rawIds.isEmpty()) throw new BusinessException("ids不能为空");
+        // TS uses field name "id" (array)
+        @SuppressWarnings("unchecked") List<Object> rawIds = body.get("id") != null
+                ? (List<Object>) body.get("id") : (List<Object>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) throw new BusinessException("id不能为空");
         List<String> ids = rawIds.stream().map(Object::toString).collect(Collectors.toList());
         assetsMapper.deleteBatchIds(ids);
-        return R.ok(Map.of("message", "批量删除成功"));
+        return R.ok(Map.of("message", "删除资产成功"));
     }
 
     @PostMapping("/getImage")
@@ -198,8 +204,7 @@ public class AssetsController {
                 byte[] bytes = java.util.Base64.getDecoder().decode(raw);
                 String savePath = "/" + projectId + "/" + (type != null ? type : "assets") + "/" +
                         java.util.UUID.randomUUID() + ".png";
-                java.nio.file.Path dest = java.nio.file.Paths.get(
-                        System.getProperty("user.home"), ".toonflow", "oss", savePath);
+                java.nio.file.Path dest = java.nio.file.Paths.get(dataDir, "oss", savePath);
                 java.nio.file.Files.createDirectories(dest.getParent());
                 java.nio.file.Files.write(dest, bytes);
 
