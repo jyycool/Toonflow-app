@@ -27,17 +27,27 @@ public class GeneralController {
     @PostMapping("/general/generalStatistics")
     public R<Map<String, Object>> generalStatistics(@RequestBody Map<String, Object> body) {
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+
+        // Get scriptIds for this project
+        List<OScript> scripts = scriptMapper.selectList(
+                new LambdaQueryWrapper<OScript>().eq(OScript::getProjectId, projectId)
+                        .select(OScript::getId));
+        List<String> scriptIds = scripts.stream().map(OScript::getId).collect(java.util.stream.Collectors.toList());
+
+        long roleCount = assetsMapper.selectCount(
+                new LambdaQueryWrapper<OAssets>().eq(OAssets::getProjectId, projectId).eq(OAssets::getType, "角色"));
+        long scriptCount = scriptMapper.selectCount(
+                new LambdaQueryWrapper<OScript>().eq(OScript::getProjectId, projectId));
+        long videoCount = scriptIds.isEmpty() ? 0 : videoMapper.selectCount(
+                new LambdaQueryWrapper<OVideo>().in(OVideo::getScriptId, scriptIds));
+        long storyboardCount = scriptIds.isEmpty() ? 0 : storyboardMapper.selectCount(
+                new LambdaQueryWrapper<OStoryboard>().in(OStoryboard::getScriptId, scriptIds));
+
         Map<String, Object> stats = new HashMap<>();
-        stats.put("novelCount", novelMapper.selectCount(
-                new LambdaQueryWrapper<ONovel>().eq(ONovel::getProjectId, projectId)));
-        stats.put("scriptCount", scriptMapper.selectCount(
-                new LambdaQueryWrapper<OScript>().eq(OScript::getProjectId, projectId)));
-        stats.put("assetsCount", assetsMapper.selectCount(
-                new LambdaQueryWrapper<OAssets>().eq(OAssets::getProjectId, projectId)));
-        stats.put("storyboardCount", storyboardMapper.selectCount(
-                new LambdaQueryWrapper<OStoryboard>().eq(OStoryboard::getProjectId, projectId)));
-        stats.put("videoCount", videoMapper.selectCount(
-                new LambdaQueryWrapper<OVideo>().eq(OVideo::getProjectId, projectId)));
+        stats.put("roleCount", roleCount);
+        stats.put("scriptCount", scriptCount);
+        stats.put("videoCount", videoCount);
+        stats.put("storyboardCount", storyboardCount);
         return R.ok(stats);
     }
 
