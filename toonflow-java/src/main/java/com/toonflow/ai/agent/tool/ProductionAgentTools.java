@@ -79,14 +79,14 @@ public class ProductionAgentTools {
     // Data / operation tools
     // ──────────────────────────────────────────────
 
-    @Tool(description = "获取图片流程数据")
+    @Tool(name = "get_flowData", description = "获取图片流程数据")
     public String getFlowData(@ToolParam(description = "流程 id") String flowId) {
         log.info("[tool] getFlowData {}", flowId);
         OImageFlow flow = imageFlowMapper.selectById(flowId);
         return flow != null && flow.getFlowData() != null ? flow.getFlowData() : "无数据";
     }
 
-    @Tool(description = "新增或更新衍生资产（id 为空则新增）")
+    @Tool(name = "add_deriveAsset", description = "新增或更新衍生资产（id 为空则新增）")
     public String addDeriveAsset(
             @ToolParam(description = "关联的资产 ID") String assetsId,
             @ToolParam(description = "衍生资产 ID，新增时传 null") String id,
@@ -127,7 +127,7 @@ public class ProductionAgentTools {
         }
     }
 
-    @Tool(description = "删除衍生资产")
+    @Tool(name = "del_deriveAsset", description = "删除衍生资产")
     public String delDeriveAsset(
             @ToolParam(description = "衍生资产 ID") String id) {
         log.info("[tool] delDeriveAsset {}", id);
@@ -140,7 +140,7 @@ public class ProductionAgentTools {
         return "已删除衍生资产，ID: " + id;
     }
 
-    @Tool(description = "生成衍生资产图片")
+    @Tool(name = "generate_deriveAsset", description = "生成衍生资产图片")
     public String generateDeriveAsset(
             @ToolParam(description = "需要生成的衍生资产 ID 列表") List<String> ids) {
         log.info("[tool] generateDeriveAsset {}", ids);
@@ -159,7 +159,7 @@ public class ProductionAgentTools {
         return "已生成 " + success + "/" + ids.size() + " 个衍生资产图片";
     }
 
-    @Tool(description = "生成分镜图片，传入真实的分镜 ID 列表，支持批量")
+    @Tool(name = "generate_storyboard", description = "生成分镜图片，传入真实的分镜 ID 列表，支持批量")
     public String generateStoryboard(
             @ToolParam(description = "分镜 ID 列表") List<String> ids) {
         log.info("[tool] generateStoryboard {}", ids);
@@ -179,7 +179,7 @@ public class ProductionAgentTools {
     // Sub-agent tools
     // ──────────────────────────────────────────────
 
-    @Tool(description = "运行执行subAgent来完成衍生资产分析与信息写入相关任务")
+    @Tool(name = "run_sub_agent_derive_assets", description = "运行执行subAgent来完成衍生资产分析与信息写入相关任务")
     public String runSubAgentDeriveAssets(
             @ToolParam(description = "交给子Agent的任务简约描述，100字以内") String prompt) {
         log.info("[tool] runSubAgentDeriveAssets");
@@ -188,7 +188,7 @@ public class ProductionAgentTools {
                 null, prompt, "assistant:execution");
     }
 
-    @Tool(description = "运行执行subAgent来完成衍生资产图片生成相关任务")
+    @Tool(name = "run_sub_agent_generate_assets", description = "运行执行subAgent来完成衍生资产图片生成相关任务")
     public String runSubAgentGenerateAssets(
             @ToolParam(description = "交给子Agent的任务简约描述，100字以内") String prompt) {
         log.info("[tool] runSubAgentGenerateAssets");
@@ -197,7 +197,7 @@ public class ProductionAgentTools {
                 null, prompt, "assistant:execution");
     }
 
-    @Tool(description = "运行执行subAgent来完成导演规划相关任务")
+    @Tool(name = "run_sub_agent_director_plan", description = "运行执行subAgent来完成导演规划相关任务")
     public String runSubAgentDirectorPlan(
             @ToolParam(description = "交给子Agent的任务简约描述，100字以内") String prompt) {
         log.info("[tool] runSubAgentDirectorPlan");
@@ -207,7 +207,7 @@ public class ProductionAgentTools {
                 null, prompt + formatPrompt, "assistant:execution");
     }
 
-    @Tool(description = "运行执行subAgent来完成分镜图生成相关任务")
+    @Tool(name = "run_sub_agent_storyboard_gen", description = "运行执行subAgent来完成分镜图生成相关任务")
     public String runSubAgentStoryboardGen(
             @ToolParam(description = "交给子Agent的任务简约描述，100字以内") String prompt) {
         log.info("[tool] runSubAgentStoryboardGen");
@@ -216,7 +216,7 @@ public class ProductionAgentTools {
                 null, prompt, "assistant:execution");
     }
 
-    @Tool(description = "运行执行subAgent来完成分镜面板写入相关任务")
+    @Tool(name = "run_sub_agent_storyboard_panel", description = "运行执行subAgent来完成分镜面板写入相关任务")
     public String runSubAgentStoryboardPanel(
             @ToolParam(description = "交给子Agent的任务简约描述，100字以内") String prompt) {
         log.info("[tool] runSubAgentStoryboardPanel");
@@ -229,7 +229,7 @@ public class ProductionAgentTools {
                 null, prompt + formatPrompt, "assistant:execution");
     }
 
-    @Tool(description = "运行执行subAgent来完成分镜表构建相关任务")
+    @Tool(name = "run_sub_agent_storyboard_table", description = "运行执行subAgent来完成分镜表构建相关任务")
     public String runSubAgentStoryboardTable(
             @ToolParam(description = "交给子Agent的任务简约描述，100字以内") String prompt) {
         log.info("[tool] runSubAgentStoryboardTable");
@@ -239,7 +239,7 @@ public class ProductionAgentTools {
                 null, prompt + formatPrompt, "assistant:execution");
     }
 
-    @Tool(description = "运行监督层subAgent执行独立任务，完成后返回结果")
+    @Tool(name = "run_sub_agent_supervision", description = "运行监督层subAgent执行独立任务，完成后返回结果")
     public String runSupervisionAgent(
             @ToolParam(description = "交给子Agent的任务简约描述，100字以内") String prompt) {
         log.info("[tool] runSupervisionAgent");

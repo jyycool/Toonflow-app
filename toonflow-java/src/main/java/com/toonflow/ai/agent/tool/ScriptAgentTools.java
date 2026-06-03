@@ -65,7 +65,7 @@ public class ScriptAgentTools {
     // Data query tools
     // ──────────────────────────────────────────────
 
-    @Tool(description = "获取指定章节编号的章节事件")
+    @Tool(name = "get_novel_events", description = "获取指定章节编号的章节事件")
     public String getNovelEvents(
             @ToolParam(description = "章节编号列表") List<Integer> chapterIndexs) {
         log.info("[tool] getNovelEvents {}", chapterIndexs);
@@ -80,7 +80,7 @@ public class ScriptAgentTools {
                 .collect(Collectors.joining("\n"));
     }
 
-    @Tool(description = "获取小说指定章节的原始文本内容")
+    @Tool(name = "get_novel_text", description = "获取小说指定章节的原始文本内容")
     public String getNovelText(
             @ToolParam(description = "章节编号") Integer chapterIndex) {
         log.info("[tool] getNovelText {}", chapterIndex);
@@ -93,7 +93,7 @@ public class ScriptAgentTools {
         return novel.getChapterData();
     }
 
-    @Tool(description = "根据剧本 id 列表获取剧本内容")
+    @Tool(name = "get_script_content", description = "根据剧本 id 列表获取剧本内容")
     public String getScriptContent(
             @ToolParam(description = "剧本 id 列表") List<String> ids) {
         log.info("[tool] getScriptContent {}", ids);
@@ -106,7 +106,7 @@ public class ScriptAgentTools {
                 .collect(Collectors.joining("\n\n"));
     }
 
-    @Tool(description = "保存生成的剧本到项目")
+    @Tool(name = "save_script", description = "保存生成的剧本到项目")
     public String saveScript(
             @ToolParam(description = "剧本名称") String name,
             @ToolParam(description = "剧本内容") String content) {
@@ -124,7 +124,7 @@ public class ScriptAgentTools {
     // Sub-agent tools
     // ──────────────────────────────────────────────
 
-    @Tool(description = "运行执行subAgent来完成故事骨架相关任务")
+    @Tool(name = "run_sub_agent_storySkeleton", description = "运行执行subAgent来完成故事骨架相关任务")
     public String runSubAgentStorySkeleton(
             @ToolParam(description = "交给子Agent的任务简约描述，100字以内") String prompt) {
         log.info("[tool] runSubAgentStorySkeleton");
@@ -135,7 +135,7 @@ public class ScriptAgentTools {
                 "assistant:execution:storySkeleton");
     }
 
-    @Tool(description = "运行执行subAgent来完成改编策略相关任务")
+    @Tool(name = "run_sub_agent_adaptationStrategy", description = "运行执行subAgent来完成改编策略相关任务")
     public String runSubAgentAdaptationStrategy(
             @ToolParam(description = "交给子Agent的任务简约描述，100字以内") String prompt) {
         log.info("[tool] runSubAgentAdaptationStrategy");
@@ -146,7 +146,7 @@ public class ScriptAgentTools {
                 "assistant:execution:adaptationStrategy");
     }
 
-    @Tool(description = "运行执行subAgent来完成剧本相关任务")
+    @Tool(name = "run_sub_agent_script", description = "运行执行subAgent来完成剧本相关任务")
     public String runSubAgentScript(
             @ToolParam(description = "交给子Agent的任务简约描述，100字以内") String prompt) {
         log.info("[tool] runSubAgentScript");
@@ -168,7 +168,7 @@ public class ScriptAgentTools {
                 "assistant:execution:script");
     }
 
-    @Tool(description = "运行监督层subAgent执行独立任务，完成后返回结果")
+    @Tool(name = "run_supervision_agent", description = "运行监督层subAgent执行独立任务，完成后返回结果")
     public String runSupervisionAgent(
             @ToolParam(description = "交给子Agent的任务简约描述，100字以内") String prompt) {
         log.info("[tool] runSupervisionAgent");
