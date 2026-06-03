@@ -54,7 +54,7 @@ public class ProductionAgentService {
 
         MemoryService.MemoryContext mem = memoryService.get(isolationKey, userText);
         String memPrompt = memoryService.buildPrompt(mem);
-        String projectInfo = buildProjectInfo(projectId);
+        String projectInfo = buildProjectInfo(projectId, scriptId);
 
         List<AiService.ChatMessage> messages = List.of(
                 new AiService.ChatMessage("system", loadDecisionPrompt()),
@@ -126,17 +126,29 @@ public class ProductionAgentService {
                         });
     }
 
-    private String buildProjectInfo(String projectId) {
+    private String buildProjectInfo(String projectId, String scriptId) {
         OProject project = projectMapper.selectById(projectId);
         if (project == null) return "## 项目信息\n（项目不存在）";
-        return String.join("\n",
-                "## 项目信息",
-                "项目名称：" + nv(project.getName()),
-                "项目类型：" + nv(project.getType()),
-                "画风：" + nv(project.getArtStyle()),
-                "画幅：" + nv(project.getVideoRatio()),
-                "图片模型：" + nv(project.getImageModel()),
-                "视频模型：" + nv(project.getVideoModel()));
+        // Parse "vendorId:modelName" → only take the model name part
+        String imageModelName = parseModelName(project.getImageModel());
+        String videoModelName = parseModelName(project.getVideoModel());
+        String modelInfo = "项目使用的模型如下：\n图像模型：" + imageModelName + "\n视频模型：" + videoModelName;
+        StringBuilder sb = new StringBuilder();
+        sb.append("## 项目信息\n");
+        sb.append("项目ID：").append(nv(projectId)).append("\n");
+        sb.append("项目名称：").append(nv(project.getName())).append("\n");
+        sb.append("项目类型：").append(nv(project.getType())).append("\n");
+        sb.append("画风：").append(nv(project.getArtStyle())).append("\n");
+        sb.append("画幅：").append(nv(project.getVideoRatio())).append("\n");
+        if (scriptId != null) sb.append("当前剧本ID：").append(scriptId).append("\n");
+        sb.append(modelInfo);
+        return sb.toString();
+    }
+
+    private String parseModelName(String vendorModel) {
+        if (vendorModel == null) return "未知";
+        int idx = vendorModel.indexOf(':');
+        return idx >= 0 ? vendorModel.substring(idx + 1) : vendorModel;
     }
 
     private String loadDecisionPrompt() {

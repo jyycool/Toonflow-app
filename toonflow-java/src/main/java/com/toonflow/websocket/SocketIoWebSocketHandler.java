@@ -214,15 +214,33 @@ public class SocketIoWebSocketHandler extends TextWebSocketHandler {
     @Async
     protected void handleProductionAgentEvent(WebSocketSession session, String namespace, String sid,
                                                Map<String, Object> ctx, String eventName, Object eventData) {
-        if (!"chat".equals(eventName)) return;
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> data = eventData instanceof Map ? (Map<String, Object>) eventData : Collections.emptyMap();
-            String content = (String) data.getOrDefault("content", "");
-            String isolationKey = (String) ctx.getOrDefault("isolationKey", sid);
-            String projectId = ctx.get("projectId") != null ? ctx.get("projectId").toString() : null;
 
-            productionAgentService.runDecision(session, namespace, sid, isolationKey, projectId, (String) null, content);
+            if ("updateContext".equals(eventName)) {
+                // Update isolationKey, projectId, scriptId in namespace context
+                Map<String, Map<String, Object>> ctxMap =
+                        (Map<String, Map<String, Object>>) session.getAttributes().get("namespaceContexts");
+                if (ctxMap != null) {
+                    Map<String, Object> cur = ctxMap.computeIfAbsent(namespace, k -> new java.util.concurrent.ConcurrentHashMap<>());
+                    if (data.get("isolationKey") != null) cur.put("isolationKey", data.get("isolationKey").toString());
+                    if (data.get("projectId") != null) cur.put("projectId", data.get("projectId").toString());
+                    if (data.get("scriptId") != null) cur.put("scriptId", data.get("scriptId").toString());
+                }
+                // Ack if callback id present (Socket.IO ack)
+                log.info("[productionAgent] updateContext: {}", data);
+                return;
+            }
+
+            if (!"chat".equals(eventName)) return;
+
+            String content = (String) data.getOrDefault("content", "");
+            String isolationKey = ctx.get("isolationKey") != null ? ctx.get("isolationKey").toString() : sid;
+            String projectId = ctx.get("projectId") != null ? ctx.get("projectId").toString() : null;
+            String scriptId = ctx.get("scriptId") != null ? ctx.get("scriptId").toString() : null;
+
+            productionAgentService.runDecision(session, namespace, sid, isolationKey, projectId, scriptId, content);
         } catch (Exception e) {
             log.error("ProductionAgent event error", e);
             emitSafe(session, namespace, "error", Map.of("message", e.getMessage()));
