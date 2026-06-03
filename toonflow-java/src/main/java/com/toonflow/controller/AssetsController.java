@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/assets")
@@ -31,13 +33,86 @@ public class AssetsController {
     }
 
     @PostMapping("/getAssetsApi")
-    public R<List<OAssets>> getAssets(@RequestBody Map<String, Object> body) {
+    public R<Map<String, Object>> getAssets(@RequestBody Map<String, Object> body) {
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
-        String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
-        LambdaQueryWrapper<OAssets> wrapper = new LambdaQueryWrapper<OAssets>()
-                .eq(OAssets::getProjectId, projectId);
-        if (scriptId != null) wrapper.eq(OAssets::getScriptId, scriptId);
-        return R.ok(assetsMapper.selectList(wrapper));
+        String type = body.get("type") != null ? body.get("type").toString() : null;
+        String name = body.get("name") != null ? body.get("name").toString() : null;
+        int page = body.get("page") instanceof Number n ? n.intValue() : 1;
+        int limit = body.get("limit") instanceof Number n ? n.intValue() : 10;
+        int offset = (page - 1) * limit;
+
+        // Parent assets (assetsId IS NULL), paginated
+        LambdaQueryWrapper<OAssets> parentQ = new LambdaQueryWrapper<OAssets>()
+                .eq(OAssets::getProjectId, projectId)
+                .eq(OAssets::getType, type)
+                .isNull(OAssets::getAssetsId);
+        if (name != null && !name.isBlank()) parentQ.like(OAssets::getName, name);
+        long total = assetsMapper.selectCount(parentQ);
+        // MyBatis-Plus doesn't have built-in offset/limit on LambdaQueryWrapper, use last()
+        parentQ.last("LIMIT " + limit + " OFFSET " + offset);
+        List<OAssets> parentAssets = assetsMapper.selectList(parentQ);
+
+        // All child assets (assetsId IS NOT NULL) for this project+type
+        LambdaQueryWrapper<OAssets> childQ = new LambdaQueryWrapper<OAssets>()
+                .eq(OAssets::getProjectId, projectId)
+                .eq(OAssets::getType, type)
+                .isNotNull(OAssets::getAssetsId);
+        if (name != null && !name.isBlank()) childQ.like(OAssets::getName, name);
+        List<OAssets> childAssets = assetsMapper.selectList(childQ);
+
+        // Collect all imageIds to batch-fetch
+        List<String> allImageIds = java.util.stream.Stream.concat(parentAssets.stream(), childAssets.stream())
+                .map(OAssets::getImageId).filter(id -> id != null).distinct().collect(Collectors.toList());
+        Map<String, OImage> imageMap = new HashMap<>();
+        if (!allImageIds.isEmpty()) {
+            imageMapper.selectList(new LambdaQueryWrapper<OImage>().in(OImage::getId, allImageIds))
+                    .forEach(img -> imageMap.put(img.getId(), img));
+        }
+
+        // Build child maps grouped by parent assetsId
+        Map<String, List<Map<String, Object>>> childByParent = childAssets.stream()
+                .map(c -> buildAssetMap(c, imageMap))
+                .collect(Collectors.groupingBy(m -> m.get("assetsId").toString()));
+
+        // Build result
+        List<Map<String, Object>> data = parentAssets.stream().map(parent -> {
+            Map<String, Object> m = buildAssetMap(parent, imageMap);
+            m.put("sonAssets", childByParent.getOrDefault(parent.getId(), List.of()));
+            return m;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("data", data);
+        result.put("total", total);
+        return R.ok(result);
+    }
+
+    private Map<String, Object> buildAssetMap(OAssets a, Map<String, OImage> imageMap) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", a.getId());
+        m.put("name", a.getName());
+        m.put("type", a.getType());
+        m.put("describe", a.getDescribe());
+        m.put("prompt", a.getPrompt());
+        m.put("promptState", a.getPromptState());
+        m.put("promptErrorReason", a.getPromptErrorReason());
+        m.put("remark", a.getRemark());
+        m.put("assetsId", a.getAssetsId());
+        m.put("imageId", a.getImageId());
+        m.put("projectId", a.getProjectId());
+        m.put("startTime", a.getStartTime());
+        // join image fields
+        OImage img = a.getImageId() != null ? imageMap.get(a.getImageId()) : null;
+        m.put("filePath", img != null ? img.getFilePath() : null);
+        m.put("state", img != null ? img.getState() : null);
+        m.put("errorReason", img != null ? img.getErrorReason() : null);
+        // audio: split describe into sex|describe
+        if ("audio".equals(a.getType()) && a.getDescribe() != null && a.getDescribe().contains("|")) {
+            String[] parts = a.getDescribe().split("\\|", 2);
+            m.put("sex", parts[0]);
+            m.put("describe", parts[1]);
+        }
+        return m;
     }
 
     @PostMapping("/updateAssets")
