@@ -22,6 +22,7 @@ public class CornerScapeController {
     private final OAssetsMapper assetsMapper;
     private final OImageMapper imageMapper;
     private final OAssetsRole2AudioMapper role2AudioMapper;
+    private final com.toonflow.ai.AudioBindService audioBindService;
 
     @PostMapping("/getAllAssets")
     public R<List<Map<String, Object>>> getAllAssets(@RequestBody Map<String, Object> body) {
@@ -139,19 +140,21 @@ public class CornerScapeController {
 
     @PostMapping("/pollingAudio")
     public R<List<OAssets>> pollingAudio(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
-        if (ids == null || ids.isEmpty()) return R.ok(List.of());
+        @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) return R.ok(List.of());
+        List<String> ids = rawIds.stream().map(Object::toString).collect(java.util.stream.Collectors.toList());
         return R.ok(assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>()
                         .in(OAssets::getId, ids)
-                        .ne(OAssets::getAudioBindState, 1)));
+                        .ne(OAssets::getAudioBindState, "生成中")));
     }
 
     @PostMapping("/batchBindAudio")
     public R<Map<String, String>> batchBindAudio(@RequestBody Map<String, Object> body) {
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         @SuppressWarnings("unchecked")
-        List<String> assetsIds = (List<String>) body.get("assetsIds");
+        List<Object> rawIds = (List<Object>) body.get("assetsIds");
+        int concurrentCount = body.get("concurrentCount") instanceof Number n ? n.intValue() : 1;
 
         List<OAssets> audioData = assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>()
@@ -161,14 +164,12 @@ public class CornerScapeController {
         if (audioData.isEmpty()) {
             throw new com.toonflow.common.exception.BusinessException("暂无设置音频，请先前往资产中心上传音频");
         }
-        if (assetsIds != null) {
-            for (String id : assetsIds) {
-                OAssets asset = assetsMapper.selectById(id);
-                if (asset != null) {
-                    asset.setAudioBindState(1);
-                    assetsMapper.updateById(asset);
-                }
-            }
+
+        List<String> assetsIds = rawIds != null
+                ? rawIds.stream().map(Object::toString).collect(Collectors.toList())
+                : List.of();
+        if (!assetsIds.isEmpty()) {
+            audioBindService.bindAudioAsync(projectId, assetsIds, concurrentCount);
         }
         return R.ok(Map.of("message", "已提交音频绑定任务"));
     }

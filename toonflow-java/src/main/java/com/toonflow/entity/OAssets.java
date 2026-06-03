@@ -23,5 +23,5 @@ public class OAssets {
     private String promptErrorReason;
     private String remark;
     private Long startTime;
-    private Integer audioBindState;
+    private String audioBindState;
 }

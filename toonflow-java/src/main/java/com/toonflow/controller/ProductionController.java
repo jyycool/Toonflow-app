@@ -239,8 +239,19 @@ public class ProductionController {
     @PostMapping("/workbench/getVideoList")
     public R<List<OVideo>> getVideoList(@RequestBody Map<String, Object> body) {
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
+        // Get trackIds from storyboards for this scriptId, then load videos
+        List<OStoryboard> storyboards = storyboardMapper.selectList(
+                new LambdaQueryWrapper<OStoryboard>()
+                        .eq(OStoryboard::getProjectId, projectId)
+                        .eq(OStoryboard::getScriptId, scriptId)
+                        .orderByAsc(OStoryboard::getIndex));
+        List<String> trackIds = storyboards.stream()
+                .filter(s -> s.getTrackId() != null)
+                .map(OStoryboard::getTrackId).distinct().collect(Collectors.toList());
+        if (trackIds.isEmpty()) return R.ok(List.of());
         return R.ok(videoMapper.selectList(
-                new LambdaQueryWrapper<OVideo>().eq(OVideo::getProjectId, projectId)));
+                new LambdaQueryWrapper<OVideo>().in(OVideo::getVideoTrackId, trackIds)));
     }
 
     @PostMapping("/workbench/addTrack")
@@ -487,14 +498,25 @@ public class ProductionController {
     }
 
     @PostMapping("/workbench/checkVideoStateList")
-    public R<List<OVideo>> checkVideoStateList(@RequestBody Map<String, Object> body) {
+    public R<List<Map<String, Object>>> checkVideoStateList(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<String> videoIds = (List<String>) body.get("videoIds");
-        if (videoIds == null || videoIds.isEmpty()) return R.ok(List.of());
-        return R.ok(videoMapper.selectList(
+        List<Object> rawIds = (List<Object>) body.get("videoIds");
+        if (rawIds == null || rawIds.isEmpty()) return R.ok(List.of());
+        List<String> videoIds = rawIds.stream().map(Object::toString).collect(Collectors.toList());
+        List<OVideo> videos = videoMapper.selectList(
                 new LambdaQueryWrapper<OVideo>()
                         .in(OVideo::getId, videoIds)
-                        .in(OVideo::getState, List.of("生成成功", "生成失败"))));
+                        .in(OVideo::getState, List.of("生成成功", "生成失败"))
+                        .select(OVideo::getId, OVideo::getState, OVideo::getErrorReason, OVideo::getFilePath));
+        List<Map<String, Object>> result = videos.stream().map(v -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", v.getId());
+            m.put("state", v.getState());
+            m.put("errorReason", v.getErrorReason() != null ? v.getErrorReason() : "");
+            m.put("src", v.getFilePath() != null ? v.getFilePath() : "");
+            return m;
+        }).collect(Collectors.toList());
+        return R.ok(result);
     }
 
     @PostMapping("/workbench/generateVideo")
@@ -778,26 +800,39 @@ public class ProductionController {
 
     @PostMapping("/workbench/getAudioBindAssetsList")
     public R<List<Map<String, Object>>> getAudioBindAssetsList(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> assetsIds = (List<String>) body.get("assetsIds");
-        if (assetsIds == null || assetsIds.isEmpty()) return R.ok(List.of());
+        @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("assetsIds");
+        if (rawIds == null || rawIds.isEmpty()) return R.ok(List.of());
+        List<String> assetsIds = rawIds.stream().map(Object::toString).collect(Collectors.toList());
 
         List<com.toonflow.entity.OAssetsRole2Audio> binds = role2AudioMapper.selectList(
                 new LambdaQueryWrapper<com.toonflow.entity.OAssetsRole2Audio>()
                         .in(com.toonflow.entity.OAssetsRole2Audio::getAssetsRoleId, assetsIds));
-        List<Map<String, Object>> result = new java.util.ArrayList<>();
-        for (com.toonflow.entity.OAssetsRole2Audio bind : binds) {
-            List<com.toonflow.entity.OAssets> audios = assetsMapper.selectList(
-                    new LambdaQueryWrapper<com.toonflow.entity.OAssets>()
-                            .eq(com.toonflow.entity.OAssets::getAssetsId, bind.getAssetsAudioId()));
-            for (com.toonflow.entity.OAssets a : audios) {
-                Map<String, Object> m = new java.util.HashMap<>();
-                m.put("id", a.getId());
-                m.put("prompt", a.getPrompt());
-                m.put("assetsId", a.getAssetsId());
-                m.put("roleId", bind.getAssetsRoleId());
-                result.add(m);
-            }
-        }
+        if (binds.isEmpty()) return R.ok(List.of());
+
+        // TS: o_assets where assetsId in (assetsAudioIds) joined with o_image
+        List<String> audioAssetIds = binds.stream()
+                .map(com.toonflow.entity.OAssetsRole2Audio::getAssetsAudioId).distinct().collect(Collectors.toList());
+        List<com.toonflow.entity.OAssets> audios = assetsMapper.selectList(
+                new LambdaQueryWrapper<com.toonflow.entity.OAssets>()
+                        .in(com.toonflow.entity.OAssets::getAssetsId, audioAssetIds));
+        List<String> imgIds = audios.stream().filter(a -> a.getImageId() != null)
+                .map(com.toonflow.entity.OAssets::getImageId).distinct().collect(Collectors.toList());
+        Map<String, String> imgPathMap = imgIds.isEmpty() ? Map.of() :
+                imageMapper.selectList(new LambdaQueryWrapper<com.toonflow.entity.OImage>()
+                        .in(com.toonflow.entity.OImage::getId, imgIds))
+                        .stream().collect(Collectors.toMap(
+                                com.toonflow.entity.OImage::getId,
+                                i -> i.getFilePath() != null ? i.getFilePath() : ""));
+
+        List<Map<String, Object>> result = audios.stream().map(a -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", a.getId());
+            m.put("prompt", a.getPrompt());
+            m.put("fileType", "audio");
+            m.put("sources", "assets");
+            m.put("src", a.getImageId() != null ? imgPathMap.getOrDefault(a.getImageId(), "") : "");
+            return m;
+        }).collect(Collectors.toList());
         return R.ok(result);
     }
 }

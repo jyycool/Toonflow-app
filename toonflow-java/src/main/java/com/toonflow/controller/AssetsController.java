@@ -5,16 +5,18 @@ import com.toonflow.common.exception.BusinessException;
 import com.toonflow.common.result.R;
 import com.toonflow.entity.OAssets;
 import com.toonflow.entity.OImage;
+import com.toonflow.entity.OVideo;
+import com.toonflow.entity.OVideoTrack;
 import com.toonflow.mapper.OAssetsMapper;
 import com.toonflow.mapper.OImageMapper;
+import com.toonflow.mapper.OVideoMapper;
+import com.toonflow.mapper.OVideoTrackMapper;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
-import java.util.HashMap;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @RestController
@@ -24,6 +26,8 @@ public class AssetsController {
 
     private final OAssetsMapper assetsMapper;
     private final OImageMapper imageMapper;
+    private final OVideoTrackMapper videoTrackMapper;
+    private final OVideoMapper videoMapper;
 
     @PostMapping("/addAssets")
     public R<Map<String, String>> addAssets(@RequestBody OAssets assets) {
@@ -154,19 +158,40 @@ public class AssetsController {
     }
 
     @PostMapping("/pollingImageAssets")
-    public R<List<OImage>> pollingImageAssets(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
-        if (ids == null || ids.isEmpty()) return R.ok(List.of());
-        return R.ok(imageMapper.selectList(
-                new LambdaQueryWrapper<OImage>().in(OImage::getId, ids)));
+    public R<List<Map<String, Object>>> pollingImageAssets(@RequestBody Map<String, Object> body) {
+        @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) return R.ok(List.of());
+        List<String> ids = rawIds.stream().map(Object::toString).collect(Collectors.toList());
+        // Load assets by id, then join their images — return {state, id (assets.id), filePath}
+        List<OAssets> assets = assetsMapper.selectList(
+                new LambdaQueryWrapper<OAssets>().in(OAssets::getId, ids));
+        List<String> imgIds = assets.stream().filter(a -> a.getImageId() != null)
+                .map(OAssets::getImageId).distinct().collect(Collectors.toList());
+        Map<String, OImage> imgMap = imgIds.isEmpty() ? Map.of() :
+                imageMapper.selectList(new LambdaQueryWrapper<OImage>().in(OImage::getId, imgIds)
+                        .ne(OImage::getState, "生成中"))
+                        .stream().collect(Collectors.toMap(OImage::getId, i -> i));
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (OAssets a : assets) {
+            OImage img = a.getImageId() != null ? imgMap.get(a.getImageId()) : null;
+            if (img == null) continue; // skip if image not found or still generating
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", a.getId());
+            m.put("state", img.getState());
+            m.put("filePath", img.getFilePath() != null ? img.getFilePath() : "");
+            result.add(m);
+        }
+        return R.ok(result);
     }
 
     @PostMapping("/pollingPromptAssets")
     public R<List<OAssets>> pollingPromptAssets(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
-        if (ids == null || ids.isEmpty()) return R.ok(List.of());
+        @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) return R.ok(List.of());
+        List<String> ids = rawIds.stream().map(Object::toString).collect(Collectors.toList());
         return R.ok(assetsMapper.selectList(
-                new LambdaQueryWrapper<OAssets>().in(OAssets::getId, ids)));
+                new LambdaQueryWrapper<OAssets>().in(OAssets::getId, ids)
+                        .ne(OAssets::getPromptState, "生成中")));
     }
 
     @PostMapping("/addAudioAssets")
@@ -196,19 +221,88 @@ public class AssetsController {
     }
 
     @PostMapping("/getMaterialData")
-    public R<List<OAssets>> getMaterialData(@RequestBody Map<String, Object> body) {
+    public R<Map<String, Object>> getMaterialData(@RequestBody Map<String, Object> body) {
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
-        return R.ok(assetsMapper.selectList(
+        String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
+
+        // Load clip assets joined with their images (assetsId on o_image)
+        List<OAssets> clips = assetsMapper.selectList(
                 new LambdaQueryWrapper<OAssets>()
                         .eq(OAssets::getProjectId, projectId)
-                        .eq(OAssets::getType, "clip")));
+                        .eq(OAssets::getType, "clip"));
+        List<String> assetsIds = clips.stream().map(OAssets::getId).collect(Collectors.toList());
+        Map<String, OImage> imageByAssetsId = assetsIds.isEmpty() ? Map.of() :
+                imageMapper.selectList(new LambdaQueryWrapper<OImage>().in(OImage::getAssetsId, assetsIds))
+                        .stream().collect(Collectors.toMap(OImage::getAssetsId, i -> i, (a, b) -> a));
+        List<Map<String, Object>> data = new ArrayList<>();
+        for (OAssets a : clips) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", a.getId()); m.put("name", a.getName()); m.put("type", a.getType());
+            OImage img = imageByAssetsId.get(a.getId());
+            m.put("filePath", img != null && img.getFilePath() != null ? img.getFilePath() : "");
+            data.add(m);
+        }
+        // Append ending video placeholder
+        Map<String, Object> ending = new HashMap<>();
+        ending.put("id", 0); ending.put("name", "Toonflow片尾"); ending.put("type", "clip");
+        ending.put("filePath", "/ending.mp4");
+        data.add(ending);
+
+        // Load video tracks with generated videos
+        List<Map<String, Object>> video = new ArrayList<>();
+        if (scriptId != null) {
+            List<OVideoTrack> trackRows = videoTrackMapper.selectList(
+                    new LambdaQueryWrapper<OVideoTrack>()
+                            .eq(OVideoTrack::getScriptId, scriptId)
+                            .eq(OVideoTrack::getProjectId, projectId));
+            for (OVideoTrack track : trackRows) {
+                List<OVideo> videoItems = videoMapper.selectList(
+                        new LambdaQueryWrapper<OVideo>()
+                                .eq(OVideo::getVideoTrackId, track.getId())
+                                .eq(OVideo::getState, "生成成功"));
+                if (videoItems.isEmpty()) continue;
+                List<Map<String, Object>> videoList = videoItems.stream().map(v -> {
+                    Map<String, Object> vm = new HashMap<>();
+                    vm.put("id", v.getId());
+                    vm.put("filePath", v.getFilePath() != null ? v.getFilePath() : "");
+                    vm.put("videoTrackId", v.getVideoTrackId());
+                    return vm;
+                }).collect(Collectors.toList());
+                Map<String, Object> t = new HashMap<>();
+                t.put("id", track.getId());
+                t.put("videoId", track.getVideoId());
+                t.put("video", videoList);
+                video.add(t);
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("data", data); result.put("video", video);
+        return R.ok(result);
     }
 
     @PostMapping("/batchGenerationData")
-    public R<List<OAssets>> batchGenerationData(@RequestBody Map<String, Object> body) {
+    public R<Map<String, Object>> batchGenerationData(@RequestBody Map<String, Object> body) {
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
-        return R.ok(assetsMapper.selectList(
-                new LambdaQueryWrapper<OAssets>().eq(OAssets::getProjectId, projectId)));
+        String type = body.get("type") != null ? body.get("type").toString() : null;
+        String name = body.get("name") != null ? body.get("name").toString() : null;
+        int page = body.get("page") instanceof Number n ? n.intValue() : 1;
+        int limit = body.get("limit") instanceof Number n ? n.intValue() : 10;
+        int offset = (page - 1) * limit;
+
+        LambdaQueryWrapper<OAssets> q = new LambdaQueryWrapper<OAssets>()
+                .eq(OAssets::getProjectId, projectId);
+        if (type != null && !type.isBlank()) q.eq(OAssets::getType, type);
+        if (name != null && !name.isBlank()) q.like(OAssets::getName, name);
+
+        long total = assetsMapper.selectCount(q);
+        q.last("LIMIT " + limit + " OFFSET " + offset);
+        List<OAssets> data = assetsMapper.selectList(q);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("data", data);
+        result.put("total", total);
+        return R.ok(result);
     }
 
     @PostMapping("/delImage")
