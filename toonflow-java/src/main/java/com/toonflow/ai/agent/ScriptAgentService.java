@@ -103,8 +103,18 @@ public class ScriptAgentService {
                         },
                         error -> {
                             log.error("剧本 Agent 执行失败", error);
-                            socketIoHandler.emit(session, namespace, "error",
-                                    Map.of("message", error.getMessage()));
+                            socketIoHandler.emit(session, namespace, "content:update", Map.of(
+                                    "messageId", messageId,
+                                    "contentId", contentId,
+                                    "type", "text",
+                                    "data", (Object) null,
+                                    "status", "error"
+                            ));
+                            socketIoHandler.emit(session, namespace, "message:update", Map.of(
+                                    "id", messageId,
+                                    "status", "error",
+                                    "ext", Map.of("error", error.getMessage() != null ? error.getMessage() : "未知错误")
+                            ));
                         },
                         () -> {
                             // 保存助手回复到记忆
