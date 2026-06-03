@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/production/storyboard")
@@ -26,14 +27,33 @@ public class StoryboardController {
     }
 
     @PostMapping("/getStoryboardData")
-    public R<List<OStoryboard>> getStoryboardData(@RequestBody Map<String, Object> body) {
-        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+    public R<Map<String, Object>> getStoryboardData(@RequestBody Map<String, Object> body) {
         String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
-        LambdaQueryWrapper<OStoryboard> wrapper = new LambdaQueryWrapper<OStoryboard>()
-                .eq(OStoryboard::getProjectId, projectId);
-        if (scriptId != null) wrapper.eq(OStoryboard::getScriptId, scriptId);
-        wrapper.orderByAsc(OStoryboard::getIndex);
-        return R.ok(storyboardMapper.selectList(wrapper));
+        String name = body.get("name") != null ? body.get("name").toString() : null;
+        int page = body.get("page") instanceof Number n ? n.intValue() : 1;
+        int limit = body.get("limit") instanceof Number n ? n.intValue() : 20;
+        int offset = (page - 1) * limit;
+
+        LambdaQueryWrapper<OStoryboard> q = new LambdaQueryWrapper<OStoryboard>()
+                .eq(OStoryboard::getScriptId, scriptId);
+        // TS filters by "title" but entity has no title; skip name filter
+        long total = storyboardMapper.selectCount(q);
+        q.last("LIMIT " + limit + " OFFSET " + offset);
+        List<OStoryboard> rows = storyboardMapper.selectList(q);
+
+        List<Map<String, Object>> data = rows.stream().map(i -> {
+            Map<String, Object> m = new java.util.HashMap<>();
+            m.put("id", i.getId());
+            m.put("prompt", i.getPrompt());
+            m.put("state", i.getState());
+            m.put("src", i.getFilePath() != null ? i.getFilePath() : "");
+            return m;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new java.util.HashMap<>();
+        result.put("data", data);
+        result.put("total", total);
+        return R.ok(result);
     }
 
     @PostMapping("/editStoryboardInfo")

@@ -177,20 +177,52 @@ public class GenerateController {
     @PostMapping("/assetsGenerate/polishAssetsPrompt")
     public R<Map<String, Object>> polishAssetsPrompt(@RequestBody Map<String, Object> body) {
         String assetsId = body.get("assetsId") != null ? body.get("assetsId").toString() : null;
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String type = body.get("type") != null ? body.get("type").toString() : null;
         String name = (String) body.getOrDefault("name", "");
         String describe = (String) body.getOrDefault("describe", "");
+
+        OProject project = projectMapper.selectById(projectId);
+        if (project == null) throw new BusinessException("项目为空");
+
+        // Mark in-progress
+        com.toonflow.entity.OAssets assetData = assetsMapper.selectById(assetsId);
+        if (assetData == null) throw new BusinessException("资产不存在");
+        com.toonflow.entity.OAssets upd = new com.toonflow.entity.OAssets();
+        upd.setId(assetsId); upd.setPromptState("生成中");
+        assetsMapper.updateById(upd);
+
+        boolean isDerivative = assetData.getAssetsId() != null;
+        String visualManualKey = getVisualManualKey(type, isDerivative);
+        String nameLabel = getNameLabel(type);
+        String visualManual = getArtPrompt(project.getArtStyle(), "art_skills", visualManualKey);
+        if (visualManual.isBlank()) {
+            com.toonflow.entity.OAssets fail = new com.toonflow.entity.OAssets();
+            fail.setId(assetsId); fail.setPromptState("生成失败"); fail.setPromptErrorReason("视觉手册未定义");
+            assetsMapper.updateById(fail);
+            throw new BusinessException("视觉手册未定义");
+        }
         try {
-            String polished = aiService.generateText("universalAi", List.of(
-                    new com.toonflow.ai.AiService.ChatMessage("system",
-                            "你是一个图像提示词专家。请将用户提供的素材名称和描述润色为高质量的图像生成提示词，只输出提示词本身。"),
-                    new com.toonflow.ai.AiService.ChatMessage("user", "名称：" + name + "\n描述：" + describe)));
-            com.toonflow.entity.OAssets asset = assetsMapper.selectById(assetsId);
-            if (asset != null) {
-                asset.setPrompt(polished);
-                assetsMapper.updateById(asset);
+            String userContent = "**基础参数：**\n**" + nameLabel + "设定：**\n- " + nameLabel + "名称:" + name + ",\n- " + nameLabel + "描述:" + describe + ",";
+            String output = aiService.generateText("universalAi", List.of(
+                    new com.toonflow.ai.AiService.ChatMessage("system", visualManual),
+                    new com.toonflow.ai.AiService.ChatMessage("user", userContent)));
+            if (output == null || output.isBlank()) {
+                com.toonflow.entity.OAssets fail = new com.toonflow.entity.OAssets();
+                fail.setId(assetsId); fail.setPromptState("生成失败");
+                assetsMapper.updateById(fail);
+                throw new BusinessException("生成失败");
             }
-            return R.ok(Map.of("prompt", polished));
+            com.toonflow.entity.OAssets done = new com.toonflow.entity.OAssets();
+            done.setId(assetsId); done.setPrompt(output); done.setPromptState("已完成");
+            assetsMapper.updateById(done);
+            return R.ok(Map.of("prompt", output, "assetsId", assetsId));
+        } catch (BusinessException be) {
+            throw be;
         } catch (Exception e) {
+            com.toonflow.entity.OAssets fail = new com.toonflow.entity.OAssets();
+            fail.setId(assetsId); fail.setPromptState("失败"); fail.setPromptErrorReason(e.getMessage());
+            assetsMapper.updateById(fail);
             throw new BusinessException("润色失败: " + e.getMessage());
         }
     }

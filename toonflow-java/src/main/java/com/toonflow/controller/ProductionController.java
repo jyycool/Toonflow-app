@@ -11,8 +11,8 @@ import com.toonflow.mapper.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/production")
@@ -28,6 +28,10 @@ public class ProductionController {
     private final OImageMapper imageMapper;
     private final OAssets2StoryboardMapper assets2StoryboardMapper;
     private final OAssetsRole2AudioMapper role2AudioMapper;
+    private final com.toonflow.mapper.OAgentWorkDataMapper agentWorkDataMapper;
+    private final com.toonflow.mapper.OScriptMapper scriptMapper;
+    private final com.toonflow.mapper.OScriptAssetsMapper scriptAssetsMapper;
+    private final com.toonflow.mapper.OAssetsRole2AudioMapper assetsRole2AudioMapper;
     private final com.toonflow.ai.vendor.VideoGenerationService videoGenerationService;
     private final com.toonflow.ai.vendor.MediaGenerationService mediaGenerationService;
     private final com.toonflow.ai.TaskRecordService taskRecordService;
@@ -36,10 +40,134 @@ public class ProductionController {
     // ========== Flow 数据 ==========
 
     @PostMapping("/getFlowData")
-    public R<OImageFlow> getFlowData(@RequestBody Map<String, Object> body) {
-        String id = body.get("id") != null ? body.get("id").toString() : null;
-        return R.ok(imageFlowMapper.selectById(id));
+    public R<Map<String, Object>> getFlowData(@RequestBody Map<String, Object> body) {
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String episodesId = body.get("episodesId") != null ? body.get("episodesId").toString() : null;
+
+        // Load script content
+        com.toonflow.entity.OScript script = scriptMapper.selectOne(
+                new LambdaQueryWrapper<com.toonflow.entity.OScript>()
+                        .eq(com.toonflow.entity.OScript::getProjectId, projectId)
+                        .eq(com.toonflow.entity.OScript::getId, episodesId).last("LIMIT 1"));
+
+        // Load parent assets for this script
+        List<com.toonflow.entity.OScriptAssets> scriptAssets = scriptAssetsMapper.selectList(
+                new LambdaQueryWrapper<com.toonflow.entity.OScriptAssets>()
+                        .eq(com.toonflow.entity.OScriptAssets::getScriptId, episodesId));
+        List<String> assetIds = scriptAssets.stream().map(com.toonflow.entity.OScriptAssets::getAssetId).collect(Collectors.toList());
+
+        List<com.toonflow.entity.OAssets> parentAssets = assetIds.isEmpty() ? List.of() :
+                assetsMapper.selectList(new LambdaQueryWrapper<com.toonflow.entity.OAssets>()
+                        .in(com.toonflow.entity.OAssets::getId, assetIds)
+                        .isNull(com.toonflow.entity.OAssets::getAssetsId)
+                        .eq(com.toonflow.entity.OAssets::getProjectId, projectId));
+        List<com.toonflow.entity.OAssets> childAssets = assetIds.isEmpty() ? List.of() :
+                assetsMapper.selectList(new LambdaQueryWrapper<com.toonflow.entity.OAssets>()
+                        .eq(com.toonflow.entity.OAssets::getProjectId, projectId)
+                        .in(com.toonflow.entity.OAssets::getAssetsId, assetIds)
+                        .isNotNull(com.toonflow.entity.OAssets::getAssetsId));
+
+        // Batch load images
+        Set<String> imageIdSet = new HashSet<>();
+        parentAssets.forEach(a -> { if (a.getImageId() != null) imageIdSet.add(a.getImageId()); });
+        childAssets.forEach(a -> { if (a.getImageId() != null) imageIdSet.add(a.getImageId()); });
+        Map<String, com.toonflow.entity.OImage> imageMap = imageIdSet.isEmpty() ? Map.of() :
+                imageMapper.selectList(new LambdaQueryWrapper<com.toonflow.entity.OImage>().in(com.toonflow.entity.OImage::getId, imageIdSet))
+                        .stream().collect(Collectors.toMap(com.toonflow.entity.OImage::getId, i -> i));
+
+        // Check for saved agent work data
+        com.toonflow.entity.OAgentWorkData workData = agentWorkDataMapper.selectOne(
+                new LambdaQueryWrapper<com.toonflow.entity.OAgentWorkData>()
+                        .eq(com.toonflow.entity.OAgentWorkData::getProjectId, projectId)
+                        .eq(com.toonflow.entity.OAgentWorkData::getEpisodesId, episodesId)
+                        .last("LIMIT 1"));
+
+        // Build asset list (shared between both paths)
+        List<Map<String, Object>> assetList = parentAssets.stream().map(item -> {
+            com.toonflow.entity.OImage img = item.getImageId() != null ? imageMap.get(item.getImageId()) : null;
+            Map<String, Object> a = new HashMap<>();
+            a.put("id", item.getId());
+            a.put("name", nvl(item.getName()));
+            a.put("type", nvl(item.getType()));
+            a.put("prompt", nvl(item.getPrompt()));
+            a.put("desc", nvl(item.getDescribe()));
+            a.put("src", img != null ? img.getFilePath() : null);
+            a.put("flowId", item.getFlowId());
+            List<Map<String, Object>> derive = childAssets.stream()
+                    .filter(c -> item.getId().equals(c.getAssetsId()))
+                    .map(c -> {
+                        com.toonflow.entity.OImage ci = c.getImageId() != null ? imageMap.get(c.getImageId()) : null;
+                        Map<String, Object> d = new HashMap<>();
+                        d.put("id", c.getId());
+                        d.put("assetsId", item.getId());
+                        d.put("name", nvl(c.getName()));
+                        d.put("type", c.getType());
+                        d.put("prompt", c.getPrompt());
+                        d.put("desc", nvl(c.getDescribe()));
+                        d.put("src", ci != null ? ci.getFilePath() : null);
+                        d.put("state", ci != null && ci.getState() != null ? ci.getState() : "未生成");
+                        d.put("errorReason", ci != null ? ci.getErrorReason() : null);
+                        d.put("flowId", c.getFlowId());
+                        return d;
+                    }).collect(Collectors.toList());
+            a.put("derive", derive);
+            return a;
+        }).collect(Collectors.toList());
+
+        if (workData == null) {
+            // No saved data — return empty flow structure
+            Map<String, Object> flowData = new HashMap<>();
+            flowData.put("script", script != null && script.getContent() != null ? script.getContent() : "");
+            flowData.put("scriptPlan", "");
+            flowData.put("assets", assetList);
+            flowData.put("storyboardTable", "");
+            flowData.put("storyboard", List.of());
+            flowData.put("workbench", Map.of("videoList", List.of()));
+            return R.ok(flowData);
+        } else {
+            // Has saved data — merge assets + storyboard
+            Map<String, Object> flowData;
+            try {
+                flowData = new com.fasterxml.jackson.databind.ObjectMapper()
+                        .readValue(workData.getData(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+            } catch (Exception e) {
+                flowData = new HashMap<>();
+            }
+            flowData.put("assets", assetList);
+
+            // Storyboard with associated asset IDs
+            List<com.toonflow.entity.OStoryboard> storyboardData = storyboardMapper.selectList(
+                    new LambdaQueryWrapper<OStoryboard>().eq(OStoryboard::getScriptId, episodesId));
+            List<String> sbIds = storyboardData.stream().map(OStoryboard::getId).collect(Collectors.toList());
+            Map<String, List<String>> assets2SbMap = new HashMap<>();
+            if (!sbIds.isEmpty()) {
+                assets2StoryboardMapper.selectList(new LambdaQueryWrapper<com.toonflow.entity.OAssets2Storyboard>()
+                        .in(com.toonflow.entity.OAssets2Storyboard::getStoryboardId, sbIds))
+                        .forEach(r -> assets2SbMap.computeIfAbsent(r.getStoryboardId(), k -> new ArrayList<>()).add(r.getAssetId()));
+            }
+            List<Map<String, Object>> storyboard = storyboardData.stream()
+                    .sorted(Comparator.comparingInt(s -> s.getIndex() != null ? s.getIndex() : 0))
+                    .map(s -> {
+                        Map<String, Object> m = new HashMap<>();
+                        m.put("id", s.getId());
+                        m.put("index", s.getIndex());
+                        m.put("duration", s.getDuration() != null ? Double.parseDouble(s.getDuration()) : 0.0);
+                        m.put("prompt", s.getPrompt());
+                        m.put("associateAssetsIds", assets2SbMap.getOrDefault(s.getId(), List.of()));
+                        m.put("src", s.getFilePath());
+                        m.put("state", s.getState());
+                        m.put("videoDesc", s.getVideoDesc());
+                        m.put("shouldGenerateImage", s.getShouldGenerateImage());
+                        m.put("reason", nvl(s.getReason()));
+                        m.put("flowId", s.getFlowId());
+                        return m;
+                    }).collect(Collectors.toList());
+            flowData.put("storyboard", storyboard);
+            return R.ok(flowData);
+        }
     }
+
+    private String nvl(String s) { return s != null ? s : ""; }
 
     @PostMapping("/saveFlowData")
     public R<Map<String, Object>> saveFlowData(@RequestBody OImageFlow flow) {
@@ -52,12 +180,58 @@ public class ProductionController {
     }
 
     @PostMapping("/getStoryboardData")
-    public R<List<OStoryboard>> getStoryboardData(@RequestBody Map<String, Object> body) {
-        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
-        return R.ok(storyboardMapper.selectList(
+    public R<List<Map<String, Object>>> getStoryboardData(@RequestBody Map<String, Object> body) {
+        String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
+        List<OStoryboard> storyboardData = storyboardMapper.selectList(
                 new LambdaQueryWrapper<OStoryboard>()
-                        .eq(OStoryboard::getProjectId, projectId)
-                        .orderByAsc(OStoryboard::getIndex)));
+                        .eq(OStoryboard::getScriptId, scriptId)
+                        .orderByAsc(OStoryboard::getIndex));
+        if (storyboardData.isEmpty()) return R.ok(List.of());
+
+        List<String> sbIds = storyboardData.stream().map(OStoryboard::getId).collect(Collectors.toList());
+
+        // Join o_assets2Storyboard -> o_assets -> o_image to get characters
+        List<com.toonflow.entity.OAssets2Storyboard> a2s = assets2StoryboardMapper.selectList(
+                new LambdaQueryWrapper<com.toonflow.entity.OAssets2Storyboard>()
+                        .in(com.toonflow.entity.OAssets2Storyboard::getStoryboardId, sbIds));
+
+        Map<String, List<Map<String, Object>>> charactersMap = new HashMap<>();
+        if (!a2s.isEmpty()) {
+            List<String> aIds = a2s.stream().map(com.toonflow.entity.OAssets2Storyboard::getAssetId).distinct().collect(Collectors.toList());
+            List<com.toonflow.entity.OAssets> assets = assetsMapper.selectList(
+                    new LambdaQueryWrapper<com.toonflow.entity.OAssets>().in(com.toonflow.entity.OAssets::getId, aIds)
+                            .select(com.toonflow.entity.OAssets::getId, com.toonflow.entity.OAssets::getName,
+                                    com.toonflow.entity.OAssets::getType, com.toonflow.entity.OAssets::getImageId));
+            Set<String> imgIds = assets.stream().filter(a -> a.getImageId() != null).map(com.toonflow.entity.OAssets::getImageId).collect(Collectors.toSet());
+            Map<String, String> imgPathMap = imgIds.isEmpty() ? Map.of() :
+                    imageMapper.selectList(new LambdaQueryWrapper<com.toonflow.entity.OImage>().in(com.toonflow.entity.OImage::getId, imgIds)
+                                    .select(com.toonflow.entity.OImage::getId, com.toonflow.entity.OImage::getFilePath))
+                            .stream().collect(Collectors.toMap(com.toonflow.entity.OImage::getId, i -> i.getFilePath() != null ? i.getFilePath() : ""));
+            Map<String, com.toonflow.entity.OAssets> assetById = assets.stream().collect(Collectors.toMap(com.toonflow.entity.OAssets::getId, a -> a));
+
+            for (com.toonflow.entity.OAssets2Storyboard rel : a2s) {
+                com.toonflow.entity.OAssets asset = assetById.get(rel.getAssetId());
+                if (asset == null) continue;
+                Map<String, Object> c = new HashMap<>();
+                c.put("name", nvl(asset.getName()));
+                c.put("type", nvl(asset.getType()));
+                if (asset.getImageId() != null) c.put("avatar", imgPathMap.getOrDefault(asset.getImageId(), ""));
+                charactersMap.computeIfAbsent(rel.getStoryboardId(), k -> new ArrayList<>()).add(c);
+            }
+        }
+
+        List<Map<String, Object>> result = storyboardData.stream().map(item -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", String.valueOf(item.getId()));
+            m.put("createTime", item.getCreateTime());
+            m.put("duration", item.getDuration() != null ? Double.parseDouble(item.getDuration()) : null);
+            m.put("filePath", item.getFilePath() != null ? item.getFilePath() : "");
+            m.put("prompt", item.getPrompt());
+            m.put("scriptId", item.getScriptId());
+            m.put("characters", charactersMap.getOrDefault(item.getId(), List.of()));
+            return m;
+        }).collect(Collectors.toList());
+        return R.ok(result);
     }
 
     // ========== 视频工作台 ==========
@@ -115,11 +289,201 @@ public class ProductionController {
     @PostMapping("/workbench/getGenerateData")
     public R<Map<String, Object>> getGenerateData(@RequestBody Map<String, Object> body) {
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
-        List<OVideoTrack> tracks = videoTrackMapper.selectList(
-                new LambdaQueryWrapper<OVideoTrack>().eq(OVideoTrack::getProjectId, projectId));
-        List<OVideo> videos = videoMapper.selectList(
-                new LambdaQueryWrapper<OVideo>().eq(OVideo::getProjectId, projectId));
-        return R.ok(Map.of("tracks", tracks, "videos", videos));
+        String scriptId = body.get("scriptId") != null ? body.get("scriptId").toString() : null;
+
+        // Determine isRef from project videoMode
+        OProject project = projectMapper.selectById(projectId);
+        boolean isRef = false;
+        if (project != null && project.getMode() != null) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+                Object parsed = om.readValue(project.getMode(), Object.class);
+                isRef = parsed instanceof List;
+            } catch (Exception ignored) {}
+        }
+        // Parse audioReferenceCount from videoMode array
+        int audioReferenceCount = 0;
+        if (isRef && project != null && project.getMode() != null) {
+            try {
+                com.fasterxml.jackson.databind.ObjectMapper om = new com.fasterxml.jackson.databind.ObjectMapper();
+                List<?> modeList = om.readValue(project.getMode(), List.class);
+                for (Object v : modeList) {
+                    String sv = v.toString().toLowerCase();
+                    if (sv.startsWith("audioreference:")) {
+                        try { audioReferenceCount = Integer.parseInt(sv.split(":")[1]); } catch (Exception ignored) {}
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+
+        // Storyboard list
+        List<OStoryboard> storyboardList = storyboardMapper.selectList(
+                new LambdaQueryWrapper<OStoryboard>()
+                        .eq(OStoryboard::getScriptId, scriptId)
+                        .eq(OStoryboard::getProjectId, projectId)
+                        .orderByAsc(OStoryboard::getIndex));
+
+        // Group storyboards by trackId -> medias(image entries)
+        Map<String, List<Map<String, Object>>> storyboardTrackRecord = new LinkedHashMap<>();
+        Map<String, String> sbIdToTrackId = new HashMap<>();
+        for (OStoryboard s : storyboardList) {
+            if (s.getTrackId() == null) continue;
+            sbIdToTrackId.put(s.getId(), s.getTrackId());
+            Map<String, Object> entry = new HashMap<>();
+            entry.put("src", s.getFilePath() != null ? s.getFilePath() : "");
+            entry.put("fileType", "image");
+            entry.put("sources", "storyboard");
+            entry.put("id", s.getId());
+            entry.put("index", s.getIndex());
+            if (s.getVideoDesc() != null) entry.put("prompt", s.getVideoDesc());
+            storyboardTrackRecord.computeIfAbsent(s.getTrackId(), k -> new ArrayList<>()).add(entry);
+        }
+
+        // If isRef: load assets per storyboard with audio bindings
+        Map<String, List<Map<String, Object>>> otherDataMap = new HashMap<>(); // key=storyboardId
+        if (isRef && !storyboardList.isEmpty()) {
+            List<String> sbIds = storyboardList.stream().map(OStoryboard::getId).collect(Collectors.toList());
+            List<com.toonflow.entity.OAssets2Storyboard> a2sList = assets2StoryboardMapper.selectList(
+                    new LambdaQueryWrapper<com.toonflow.entity.OAssets2Storyboard>()
+                            .in(com.toonflow.entity.OAssets2Storyboard::getStoryboardId, sbIds));
+            List<String> aIds = a2sList.stream().map(com.toonflow.entity.OAssets2Storyboard::getAssetId).distinct().collect(Collectors.toList());
+            if (!aIds.isEmpty()) {
+                List<com.toonflow.entity.OAssets> assetDatas = assetsMapper.selectList(
+                        new LambdaQueryWrapper<com.toonflow.entity.OAssets>().in(com.toonflow.entity.OAssets::getId, aIds));
+                Set<String> imgIds = assetDatas.stream().filter(a -> a.getImageId() != null).map(com.toonflow.entity.OAssets::getImageId).collect(Collectors.toSet());
+                Map<String, String> imgPathMap = imgIds.isEmpty() ? Map.of() :
+                        imageMapper.selectList(new LambdaQueryWrapper<com.toonflow.entity.OImage>().in(com.toonflow.entity.OImage::getId, imgIds)
+                                        .select(com.toonflow.entity.OImage::getId, com.toonflow.entity.OImage::getFilePath))
+                                .stream().collect(Collectors.toMap(com.toonflow.entity.OImage::getId, i -> nvl(i.getFilePath())));
+
+                // Load audio bindings
+                Set<String> queryAudioIds = new HashSet<>();
+                assetDatas.forEach(a -> { queryAudioIds.add(a.getId()); if (a.getAssetsId() != null) queryAudioIds.add(a.getAssetsId()); });
+                Map<String, List<Map<String, Object>>> audioRecord = new HashMap<>();
+                if (!queryAudioIds.isEmpty()) {
+                    List<com.toonflow.entity.OAssetsRole2Audio> audioBinds = assetsRole2AudioMapper.selectList(
+                            new LambdaQueryWrapper<com.toonflow.entity.OAssetsRole2Audio>()
+                                    .in(com.toonflow.entity.OAssetsRole2Audio::getAssetsRoleId, queryAudioIds));
+                    List<String> audioAssetIds = audioBinds.stream().map(com.toonflow.entity.OAssetsRole2Audio::getAssetsAudioId).distinct().collect(Collectors.toList());
+                    if (!audioAssetIds.isEmpty()) {
+                        List<com.toonflow.entity.OAssets> audioAssets = assetsMapper.selectList(
+                                new LambdaQueryWrapper<com.toonflow.entity.OAssets>().in(com.toonflow.entity.OAssets::getId, audioAssetIds));
+                        Set<String> audioImgIds = audioAssets.stream().filter(a -> a.getImageId() != null).map(com.toonflow.entity.OAssets::getImageId).collect(Collectors.toSet());
+                        Map<String, String> audioImgMap = audioImgIds.isEmpty() ? Map.of() :
+                                imageMapper.selectList(new LambdaQueryWrapper<com.toonflow.entity.OImage>().in(com.toonflow.entity.OImage::getId, audioImgIds)
+                                                .select(com.toonflow.entity.OImage::getId, com.toonflow.entity.OImage::getFilePath))
+                                        .stream().collect(Collectors.toMap(com.toonflow.entity.OImage::getId, i -> nvl(i.getFilePath())));
+                        Map<String, com.toonflow.entity.OAssets> audioAssetMap = audioAssets.stream().collect(Collectors.toMap(com.toonflow.entity.OAssets::getId, a -> a));
+                        for (com.toonflow.entity.OAssetsRole2Audio bind : audioBinds) {
+                            com.toonflow.entity.OAssets aa = audioAssetMap.get(bind.getAssetsAudioId());
+                            if (aa == null) continue;
+                            Map<String, Object> ae = new HashMap<>();
+                            ae.put("id", aa.getId()); ae.put("name", aa.getName()); ae.put("describe", aa.getDescribe());
+                            ae.put("type", aa.getType()); ae.put("fileType", "audio"); ae.put("sources", "assets");
+                            ae.put("prompt", aa.getPrompt());
+                            ae.put("src", aa.getImageId() != null ? audioImgMap.getOrDefault(aa.getImageId(), "") : "");
+                            audioRecord.computeIfAbsent(bind.getAssetsRoleId(), k -> new ArrayList<>()).add(ae);
+                        }
+                    }
+                }
+
+                Map<String, com.toonflow.entity.OAssets> assetById = assetDatas.stream().collect(Collectors.toMap(com.toonflow.entity.OAssets::getId, a -> a));
+                for (com.toonflow.entity.OAssets2Storyboard rel : a2sList) {
+                    com.toonflow.entity.OAssets asset = assetById.get(rel.getAssetId());
+                    if (asset == null) continue;
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("id", asset.getId()); item.put("name", asset.getName()); item.put("describe", asset.getDescribe());
+                    item.put("type", asset.getType()); item.put("fileType", "image"); item.put("sources", "assets");
+                    item.put("src", asset.getImageId() != null ? imgPathMap.getOrDefault(asset.getImageId(), "") : "");
+                    List<Map<String, Object>> sbList = otherDataMap.computeIfAbsent(rel.getStoryboardId(), k -> new ArrayList<>());
+                    sbList.add(item);
+                    if (audioRecord.containsKey(asset.getId())) sbList.addAll(audioRecord.get(asset.getId()));
+                    if (asset.getAssetsId() != null && audioRecord.containsKey(asset.getAssetsId())) sbList.addAll(audioRecord.get(asset.getAssetsId()));
+                }
+            }
+        }
+
+        // Tracks + videos
+        List<OVideoTrack> trackData = videoTrackMapper.selectList(
+                new LambdaQueryWrapper<OVideoTrack>().eq(OVideoTrack::getProjectId, projectId).eq(OVideoTrack::getScriptId, scriptId));
+        List<OVideo> videoList = List.of();
+        if (!trackData.isEmpty()) {
+            List<String> trackIds = trackData.stream().map(OVideoTrack::getId).collect(Collectors.toList());
+            videoList = videoMapper.selectList(new LambdaQueryWrapper<OVideo>().in(OVideo::getVideoTrackId, trackIds));
+        }
+        final List<OVideo> finalVideoList = videoList;
+        final int finalAudioRefCount = audioReferenceCount;
+
+        List<Map<String, Object>> trackList = new ArrayList<>();
+        for (OVideoTrack item : trackData) {
+            String trackId = item.getId();
+            List<Map<String, Object>> storyboardMedias = storyboardTrackRecord.getOrDefault(trackId, List.of());
+            // Build unique asset medias for this track
+            Set<String> seenAssetIds = new HashSet<>();
+            List<Map<String, Object>> assetMedias = new ArrayList<>();
+            for (Map<String, Object> sb : storyboardMedias) {
+                Object sbId = sb.get("id");
+                if (sbId != null) {
+                    List<Map<String, Object>> sbAssets = otherDataMap.getOrDefault(sbId.toString(), List.of());
+                    for (Map<String, Object> a : sbAssets) {
+                        String aId = a.get("id") != null ? a.get("id").toString() : null;
+                        if (aId != null && seenAssetIds.add(aId)) assetMedias.add(a);
+                    }
+                }
+            }
+            // Apply audioReference limit
+            List<Map<String, Object>> filteredAssets = new ArrayList<>();
+            int audioCount = 0;
+            for (Map<String, Object> a : assetMedias) {
+                if ("audio".equals(a.get("fileType")) && finalAudioRefCount > 0) {
+                    if (audioCount >= finalAudioRefCount) continue;
+                    audioCount++;
+                }
+                filteredAssets.add(a);
+            }
+            List<Map<String, Object>> hasImg = filteredAssets.stream().filter(a -> a.get("src") != null && !a.get("src").toString().isEmpty()).collect(Collectors.toList());
+            List<Map<String, Object>> noImg = filteredAssets.stream().filter(a -> a.get("src") == null || a.get("src").toString().isEmpty()).collect(Collectors.toList());
+            List<Map<String, Object>> medias = new ArrayList<>();
+            medias.addAll(hasImg); medias.addAll(storyboardMedias); medias.addAll(noImg);
+
+            List<Map<String, Object>> trackVideos = finalVideoList.stream()
+                    .filter(v -> trackId.equals(v.getVideoTrackId()))
+                    .map(v -> {
+                        Map<String, Object> vm = new HashMap<>();
+                        vm.put("id", v.getId());
+                        vm.put("src", nvl(v.getFilePath()));
+                        String st = v.getState();
+                        vm.put("state", "已完成".equals(st) ? "已完成" : "生成中".equals(st) ? "生成中" : "生成失败".equals(st) ? "生成失败" : "未生成");
+                        vm.put("errorReason", nvl(v.getErrorReason()));
+                        return vm;
+                    }).collect(Collectors.toList());
+
+            Map<String, Object> t = new HashMap<>();
+            t.put("id", trackId);
+            t.put("duration", item.getDuration() != null ? item.getDuration() : 0);
+            t.put("prompt", nvl(item.getPrompt()));
+            t.put("state", nvl(item.getState()));
+            t.put("reason", nvl(item.getReason()));
+            t.put("selectVideoId", item.getSelectVideoId());
+            t.put("medias", medias);
+            t.put("videoList", trackVideos);
+            trackList.add(t);
+        }
+
+        List<Map<String, Object>> storyboardResult = storyboardList.stream().map(s -> {
+            Map<String, Object> m = new HashMap<>(); m.putAll(Map.of(
+                    "id", s.getId(), "idx", s.getIndex() != null ? s.getIndex() : 0,
+                    "src", nvl(s.getFilePath()), "filePath", nvl(s.getFilePath()),
+                    "prompt", nvl(s.getPrompt()), "videoDesc", nvl(s.getVideoDesc()),
+                    "state", nvl(s.getState()), "duration", nvl(s.getDuration()),
+                    "trackId", nvl(s.getTrackId()), "reason", nvl(s.getReason())));
+            return m;
+        }).collect(Collectors.toList());
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("storyboardList", storyboardResult);
+        result.put("trackList", trackList);
+        return R.ok(result);
     }
 
     @PostMapping("/workbench/checkVideoStateList")
