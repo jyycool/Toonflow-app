@@ -95,8 +95,9 @@ public class NovelController {
     @PostMapping("/getNovelEventState")
     public R<List<Map<String, Object>>> getNovelEventState(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<String> ids = (List<String>) body.get("ids");
-        if (ids == null || ids.isEmpty()) return R.ok(List.of());
+        List<Object> rawIds = (List<Object>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) return R.ok(List.of());
+        List<String> ids = rawIds.stream().map(Object::toString).collect(java.util.stream.Collectors.toList());
 
         List<ONovel> list = novelMapper.selectList(
                 new LambdaQueryWrapper<ONovel>()
