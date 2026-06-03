@@ -1,17 +1,13 @@
 package com.toonflow.ai.agent.tool;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.toonflow.ai.AiService;
 import com.toonflow.ai.MemoryService;
 import com.toonflow.ai.vendor.MediaGenerationService;
-import com.toonflow.entity.OAssets;
-import com.toonflow.entity.OImageFlow;
-import com.toonflow.entity.OScriptAssets;
-import com.toonflow.entity.OStoryboard;
-import com.toonflow.mapper.OAssetsMapper;
-import com.toonflow.mapper.OImageFlowMapper;
-import com.toonflow.mapper.OScriptAssetsMapper;
-import com.toonflow.mapper.OStoryboardMapper;
+import com.toonflow.entity.*;
+import com.toonflow.mapper.*;
 import com.toonflow.websocket.SocketIoWebSocketHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
@@ -26,6 +22,7 @@ import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class ProductionAgentTools {
@@ -34,7 +31,11 @@ public class ProductionAgentTools {
     private final OScriptAssetsMapper scriptAssetsMapper;
     private final OStoryboardMapper storyboardMapper;
     private final OImageFlowMapper imageFlowMapper;
+    private final OAgentWorkDataMapper agentWorkDataMapper;
+    private final OImageMapper imageMapper;
+    private final OAssets2StoryboardMapper assets2StoryboardMapper;
     private final MediaGenerationService mediaGenerationService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private final String projectId;
     private final String scriptId;
     private final String imageModel;
@@ -51,6 +52,8 @@ public class ProductionAgentTools {
 
     public ProductionAgentTools(OAssetsMapper assetsMapper, OScriptAssetsMapper scriptAssetsMapper,
                                 OStoryboardMapper storyboardMapper, OImageFlowMapper imageFlowMapper,
+                                OAgentWorkDataMapper agentWorkDataMapper, OImageMapper imageMapper,
+                                OAssets2StoryboardMapper assets2StoryboardMapper,
                                 MediaGenerationService mediaGenerationService,
                                 String projectId, String scriptId, String imageModel,
                                 AiService aiService, MemoryService memoryService,
@@ -61,6 +64,9 @@ public class ProductionAgentTools {
         this.scriptAssetsMapper = scriptAssetsMapper;
         this.storyboardMapper = storyboardMapper;
         this.imageFlowMapper = imageFlowMapper;
+        this.agentWorkDataMapper = agentWorkDataMapper;
+        this.imageMapper = imageMapper;
+        this.assets2StoryboardMapper = assets2StoryboardMapper;
         this.mediaGenerationService = mediaGenerationService;
         this.projectId = projectId;
         this.scriptId = scriptId;
@@ -79,11 +85,113 @@ public class ProductionAgentTools {
     // Data / operation tools
     // ──────────────────────────────────────────────
 
-    @Tool(name = "get_flowData", description = "获取图片流程数据")
-    public String getFlowData(@ToolParam(description = "流程 id") String flowId) {
-        log.info("[tool] getFlowData {}", flowId);
-        OImageFlow flow = imageFlowMapper.selectById(flowId);
-        return flow != null && flow.getFlowData() != null ? flow.getFlowData() : "无数据";
+    @Tool(name = "get_flowData",
+          description = "获取工作区数据。key 可选值: script(剧本内容), scriptPlan(拍摄计划), assets(资产列表), storyboard(分镜面板), storyboardTable(分镜表)")
+    public String getFlowData(@ToolParam(description = "数据key: script | scriptPlan | assets | storyboard | storyboardTable") String key) {
+        log.info("[tool] getFlowData key={}", key);
+        try {
+            // Load saved workspace data from o_agentWorkData
+            OAgentWorkData workData = agentWorkDataMapper.selectOne(
+                    new LambdaQueryWrapper<OAgentWorkData>()
+                            .eq(OAgentWorkData::getProjectId, projectId)
+                            .eq(OAgentWorkData::getEpisodesId, scriptId)
+                            .eq(OAgentWorkData::getKey, "productionAgent"));
+
+            // For assets and storyboard, always build from live DB data
+            if ("assets".equals(key)) {
+                return buildAssetsJson();
+            }
+            if ("storyboard".equals(key)) {
+                return buildStoryboardJson();
+            }
+
+            // For other keys, read from saved workData
+            if (workData == null || workData.getData() == null) {
+                return "（暂无数据）";
+            }
+            Map<String, Object> dataMap = objectMapper.readValue(workData.getData(), new TypeReference<>() {});
+            Object val = dataMap.get(key);
+            if (val == null) return "（暂无数据）";
+            return val instanceof String s ? s : objectMapper.writeValueAsString(val);
+        } catch (Exception e) {
+            log.error("[tool] getFlowData error", e);
+            return "获取数据失败: " + e.getMessage();
+        }
+    }
+
+    private String buildAssetsJson() throws Exception {
+        // Load script-linked assets
+        List<OScriptAssets> relations = scriptId != null
+                ? scriptAssetsMapper.selectList(new LambdaQueryWrapper<OScriptAssets>().eq(OScriptAssets::getScriptId, scriptId))
+                : List.of();
+        List<String> assetIds = relations.stream().map(OScriptAssets::getAssetId).distinct().collect(Collectors.toList());
+        if (assetIds.isEmpty()) return "[]";
+
+        List<OAssets> parents = assetsMapper.selectList(
+                new LambdaQueryWrapper<OAssets>().in(OAssets::getId, assetIds).isNull(OAssets::getAssetsId));
+        List<OAssets> children = assetsMapper.selectList(
+                new LambdaQueryWrapper<OAssets>().in(OAssets::getAssetsId, assetIds));
+
+        // Batch load images
+        Set<String> imgIds = new HashSet<>();
+        parents.forEach(a -> { if (a.getImageId() != null) imgIds.add(a.getImageId()); });
+        children.forEach(a -> { if (a.getImageId() != null) imgIds.add(a.getImageId()); });
+        Map<String, String> imgPathMap = imgIds.isEmpty() ? Map.of() :
+                imageMapper.selectList(new LambdaQueryWrapper<OImage>().in(OImage::getId, imgIds)
+                        .select(OImage::getId, OImage::getFilePath))
+                        .stream().collect(Collectors.toMap(OImage::getId, i -> i.getFilePath() != null ? i.getFilePath() : ""));
+
+        Map<String, List<Map<String, Object>>> childByParent = children.stream()
+                .collect(Collectors.groupingBy(OAssets::getAssetsId,
+                        Collectors.mapping(c -> {
+                            Map<String, Object> m = new LinkedHashMap<>();
+                            m.put("id", c.getId()); m.put("assetsId", c.getAssetsId());
+                            m.put("name", c.getName() != null ? c.getName() : "");
+                            m.put("type", c.getType()); m.put("prompt", c.getPrompt() != null ? c.getPrompt() : "");
+                            m.put("desc", c.getDescribe() != null ? c.getDescribe() : "");
+                            m.put("src", c.getImageId() != null ? imgPathMap.getOrDefault(c.getImageId(), "") : "");
+                            m.put("state", "未生成");
+                            return m;
+                        }, Collectors.toList())));
+
+        List<Map<String, Object>> result = parents.stream().map(a -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", a.getId()); m.put("name", a.getName() != null ? a.getName() : "");
+            m.put("type", a.getType()); m.put("prompt", a.getPrompt() != null ? a.getPrompt() : "");
+            m.put("desc", a.getDescribe() != null ? a.getDescribe() : "");
+            m.put("src", a.getImageId() != null ? imgPathMap.getOrDefault(a.getImageId(), "") : "");
+            m.put("flowId", a.getFlowId());
+            m.put("derive", childByParent.getOrDefault(a.getId(), List.of()));
+            return m;
+        }).collect(Collectors.toList());
+        return objectMapper.writeValueAsString(result);
+    }
+
+    private String buildStoryboardJson() throws Exception {
+        List<OStoryboard> sbs = storyboardMapper.selectList(
+                new LambdaQueryWrapper<OStoryboard>()
+                        .eq(OStoryboard::getScriptId, scriptId)
+                        .orderByAsc(OStoryboard::getIndex));
+        if (sbs.isEmpty()) return "[]";
+        List<String> sbIds = sbs.stream().map(OStoryboard::getId).collect(Collectors.toList());
+        Map<String, List<String>> a2sMap = new HashMap<>();
+        assets2StoryboardMapper.selectList(new LambdaQueryWrapper<OAssets2Storyboard>()
+                .in(OAssets2Storyboard::getStoryboardId, sbIds))
+                .forEach(r -> a2sMap.computeIfAbsent(r.getStoryboardId(), k -> new ArrayList<>()).add(r.getAssetId()));
+        List<Map<String, Object>> result = sbs.stream().map(s -> {
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("id", s.getId()); m.put("index", s.getIndex());
+            m.put("duration", s.getDuration() != null ? Double.parseDouble(s.getDuration()) : 0.0);
+            m.put("prompt", s.getPrompt() != null ? s.getPrompt() : "");
+            m.put("associateAssetsIds", a2sMap.getOrDefault(s.getId(), List.of()));
+            m.put("src", s.getFilePath() != null ? s.getFilePath() : "");
+            m.put("state", s.getState()); m.put("videoDesc", s.getVideoDesc());
+            m.put("shouldGenerateImage", s.getShouldGenerateImage());
+            m.put("reason", s.getReason() != null ? s.getReason() : "");
+            m.put("flowId", s.getFlowId());
+            return m;
+        }).collect(Collectors.toList());
+        return objectMapper.writeValueAsString(result);
     }
 
     @Tool(name = "add_deriveAsset", description = "新增或更新衍生资产（id 为空则新增）")

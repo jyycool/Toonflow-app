@@ -5,11 +5,8 @@ import com.toonflow.ai.MemoryService;
 import com.toonflow.ai.agent.tool.ProductionAgentTools;
 import com.toonflow.ai.vendor.MediaGenerationService;
 import com.toonflow.entity.OProject;
-import com.toonflow.mapper.OAssetsMapper;
-import com.toonflow.mapper.OImageFlowMapper;
-import com.toonflow.mapper.OProjectMapper;
-import com.toonflow.mapper.OScriptAssetsMapper;
-import com.toonflow.mapper.OStoryboardMapper;
+import com.toonflow.mapper.*;
+
 import com.toonflow.websocket.SocketIoWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +32,9 @@ public class ProductionAgentService {
     private final OScriptAssetsMapper scriptAssetsMapper;
     private final OStoryboardMapper storyboardMapper;
     private final OImageFlowMapper imageFlowMapper;
+    private final OAgentWorkDataMapper agentWorkDataMapper;
+    private final OImageMapper imageMapper;
+    private final OAssets2StoryboardMapper assets2StoryboardMapper;
     private final MediaGenerationService mediaGenerationService;
     private final SocketIoWebSocketHandler socketIoHandler;
 
@@ -80,6 +80,7 @@ public class ProductionAgentService {
 
         ProductionAgentTools tools = new ProductionAgentTools(
                 assetsMapper, scriptAssetsMapper, storyboardMapper, imageFlowMapper,
+                agentWorkDataMapper, imageMapper, assets2StoryboardMapper,
                 mediaGenerationService, projectId, scriptId, imageModel,
                 aiService, memoryService, socketIoHandler,
                 session, namespace, isolationKey, dataDir, msgState);
