@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -95,61 +96,173 @@ public class GenerateController {
     }
 
     @PostMapping("/assetsGenerate/batchGenerateImageAssets")
-    public R<Map<String, String>> batchGenerateImageAssets(@RequestBody BatchGenAssetsRequest req) {
-        if (req.getAssetIds() == null || req.getAssetIds().isEmpty()) {
-            throw new BusinessException("assetIds不能为空");
-        }
-        List<OAssets> assetsList = assetsMapper.selectList(
-                new LambdaQueryWrapper<OAssets>().in(OAssets::getId, req.getAssetIds()));
+    public R<Map<String, Object>> batchGenerateImageAssets(@RequestBody Map<String, Object> body) {
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String model = body.get("model") != null ? body.get("model").toString() : null;
+        String resolution = body.get("resolution") != null ? body.get("resolution").toString() : null;
+        int concurrentCount = body.get("concurrentCount") instanceof Number n ? n.intValue() : 1;
 
-        OProject project = projectMapper.selectById(req.getProjectId());
-        String imageModel = project != null ? project.getImageModel() : null;
-        String size = resolveSize(project != null ? project.getVideoRatio() : "16:9");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> items = (List<Map<String, Object>>) body.get("items");
+        if (items == null || items.isEmpty()) throw new BusinessException("items不能为空");
 
-        asyncGenerateAssets(assetsList, imageModel, size, req.getProjectId());
-        return R.ok(Map.of("message", "已提交生成任务"));
-    }
+        OProject project = projectMapper.selectById(projectId);
+        if (project == null) throw new BusinessException("项目为空");
 
-    @Async
-    public void asyncGenerateAssets(List<OAssets> assetsList, String imageModel,
-                                     String size, String projectId) {
-        for (OAssets asset : assetsList) {
-            String taskId = taskRecordService.start(projectId, "素材图片生成", imageModel,
-                    "素材#" + asset.getId(), Map.of("assetId", asset.getId()));
-            try {
-                String url = mediaGenerationService.generateImage(imageModel, asset.getPrompt(), size);
-                OImage image = new OImage();
-                image.setAssetsId(asset.getId());
-                image.setFilePath(url);
-                image.setState("已生成");
-                image.setModel(imageModel);
-                image.setType("asset");
-                imageMapper.insert(image);
+        // Determine model/size
+        String imageModel = model != null ? model : (project.getImageModel() != null ? project.getImageModel() : null);
+        String size = resolution != null ? resolution : resolveSize(project.getVideoRatio());
 
-                asset.setImageId(image.getId());
-                assetsMapper.updateById(asset);
-                taskRecordService.done(taskId);
-            } catch (Exception e) {
-                taskRecordService.fail(taskId, e.getMessage());
+        // Pre-create o_image placeholder for each item and collect imageIds
+        List<String> imageIds = new java.util.ArrayList<>();
+        for (Map<String, Object> item : items) {
+            String assetId = item.get("id") != null ? item.get("id").toString() : null;
+            String itemType = item.get("type") != null ? item.get("type").toString() : "role";
+            OImage placeholder = new OImage();
+            placeholder.setType(itemType);
+            placeholder.setState("生成中");
+            placeholder.setAssetsId(assetId);
+            imageMapper.insert(placeholder);
+            if (assetId != null) {
+                OAssets upd = new OAssets(); upd.setId(assetId); upd.setImageId(placeholder.getId());
+                assetsMapper.updateById(upd);
             }
+            imageIds.add(placeholder.getId());
         }
+
+        final String finalModel = imageModel;
+        final String finalSize = size;
+
+        // Async concurrent generation
+        ExecutorService executor = Executors.newFixedThreadPool(Math.max(1, concurrentCount));
+        for (int i = 0; i < items.size(); i++) {
+            final int idx = i;
+            final Map<String, Object> item = items.get(i);
+            final String imageId = imageIds.get(i);
+            executor.submit(() -> {
+                String assetId = item.get("id") != null ? item.get("id").toString() : null;
+                String itemType = item.get("type") != null ? item.get("type").toString() : "role";
+                String name = item.get("name") != null ? item.get("name").toString() : "";
+                String prompt = item.get("prompt") != null ? item.get("prompt").toString() : "";
+                String base64 = (String) item.get("base64");
+
+                // Check if cancelled
+                OImage current = imageMapper.selectById(imageId);
+                if (current != null && "生成失败".equals(current.getState())) return;
+
+                String taskId = taskRecordService.start(projectId, "素材图片生成", finalModel, name, null);
+                try {
+                    String userPrompt = buildAssetPrompt(itemType, project.getArtStyle(), name, prompt);
+                    String imagePath = "/" + projectId + "/" + getTypeDir(itemType) + "/" + UUID.randomUUID() + ".jpg";
+                    String url = mediaGenerationService.generateImage(finalModel, userPrompt, finalSize);
+
+                    OImage upd = new OImage(); upd.setId(imageId);
+                    upd.setState("已完成"); upd.setFilePath(url);
+                    upd.setType(itemType); upd.setModel(parseModelName(finalModel));
+                    upd.setResolution(finalSize);
+                    imageMapper.updateById(upd);
+                    if (assetId != null) {
+                        OAssets aUpd = new OAssets(); aUpd.setId(assetId); aUpd.setImageId(imageId);
+                        assetsMapper.updateById(aUpd);
+                    }
+                    taskRecordService.done(taskId);
+                } catch (Exception e) {
+                    OImage upd = new OImage(); upd.setId(imageId);
+                    upd.setState("生成失败"); upd.setErrorReason(e.getMessage());
+                    imageMapper.updateById(upd);
+                    taskRecordService.fail(taskId, e.getMessage());
+                }
+            });
+        }
+        executor.shutdown();
+        return R.ok(Map.of("total", items.size()));
     }
 
     @PostMapping("/assetsGenerate/generateAssets")
-    public R<Map<String, Object>> generateAssets(@RequestBody GenAssetRequest req) {
-        OProject project = projectMapper.selectById(req.getProjectId());
-        String imageModel = project != null ? project.getImageModel() : null;
-        String size = resolveSize(project != null ? project.getVideoRatio() : "16:9");
-        String taskId = taskRecordService.start(req.getProjectId(), "图片生成", imageModel,
-                req.getPrompt(), null);
-        try {
-            String url = mediaGenerationService.generateImage(imageModel, req.getPrompt(), size);
-            taskRecordService.done(taskId);
-            return R.ok(Map.of("url", url));
-        } catch (Exception e) {
-            taskRecordService.fail(taskId, e.getMessage());
-            throw new BusinessException("生成失败: " + e.getMessage());
+    public R<Map<String, Object>> generateAssets(@RequestBody Map<String, Object> body) {
+        String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
+        String model = body.get("model") != null ? body.get("model").toString() : null;
+        String resolution = body.get("resolution") != null ? body.get("resolution").toString() : null;
+        String assetId = body.get("id") != null ? body.get("id").toString() : null;
+        String type = body.get("type") != null ? body.get("type").toString() : "role";
+        String name = body.get("name") != null ? body.get("name").toString() : "";
+        String prompt = body.get("prompt") != null ? body.get("prompt").toString() : "";
+
+        OProject project = projectMapper.selectById(projectId);
+        if (project == null) throw new BusinessException("项目为空");
+
+        String imageModel = model != null ? model : project.getImageModel();
+        String size = resolution != null ? resolution : resolveSize(project.getVideoRatio());
+
+        // Create o_image placeholder
+        OImage placeholder = new OImage();
+        placeholder.setType(type);
+        placeholder.setState("生成中");
+        placeholder.setAssetsId(assetId);
+        placeholder.setModel(parseModelName(imageModel));
+        placeholder.setResolution(size);
+        imageMapper.insert(placeholder);
+        if (assetId != null) {
+            OAssets upd = new OAssets(); upd.setId(assetId); upd.setImageId(placeholder.getId());
+            assetsMapper.updateById(upd);
         }
+
+        String taskId = taskRecordService.start(projectId, "图片生成", imageModel, name, null);
+        try {
+            String userPrompt = buildAssetPrompt(type, project.getArtStyle(), name, prompt);
+            String url = mediaGenerationService.generateImage(imageModel, userPrompt, size);
+
+            // Check if cancelled
+            OImage current = imageMapper.selectById(placeholder.getId());
+            if (current != null && "生成失败".equals(current.getState())) {
+                taskRecordService.done(taskId);
+                return R.ok(Map.of("path", "", "assetsId", assetId != null ? assetId : ""));
+            }
+
+            OImage upd = new OImage(); upd.setId(placeholder.getId());
+            upd.setState("已完成"); upd.setFilePath(url);
+            upd.setType(type); upd.setModel(parseModelName(imageModel)); upd.setResolution(size);
+            imageMapper.updateById(upd);
+            if (assetId != null) {
+                OAssets aUpd = new OAssets(); aUpd.setId(assetId); aUpd.setImageId(placeholder.getId());
+                assetsMapper.updateById(aUpd);
+            }
+            taskRecordService.done(taskId);
+            return R.ok(Map.of("path", url, "assetsId", assetId != null ? assetId : ""));
+        } catch (Exception e) {
+            OImage upd = new OImage(); upd.setId(placeholder.getId());
+            upd.setState("生成失败"); upd.setErrorReason(e.getMessage());
+            imageMapper.updateById(upd);
+            taskRecordService.fail(taskId, e.getMessage());
+            throw new BusinessException(e.getMessage() != null ? e.getMessage() : "图片生成失败");
+        }
+    }
+
+    private String buildAssetPrompt(String type, String artStyle, String name, String prompt) {
+        String label = switch (type) {
+            case "role" -> "角色"; case "scene" -> "场景"; case "tool" -> "道具"; default -> type;
+        };
+        String promptTitle = switch (type) {
+            case "role" -> "角色标准四视图"; case "scene" -> "标准场景图"; case "tool" -> "标准道具图"; default -> "图";
+        };
+        String promptEnd = switch (type) {
+            case "role" -> "人物角色四视图"; case "scene" -> "标准场景图"; case "tool" -> "标准道具图"; default -> "图";
+        };
+        return "请根据以下参数生成" + promptTitle + "：\n\n**基础参数：**\n- 画风风格: " +
+                (artStyle != null ? artStyle : "未指定") + "\n\n**" + label + "设定：**\n- 名称:" + name +
+                ",\n- 提示词:" + prompt + ",\n\n请严格按照系统规范生成" + promptEnd + "。";
+    }
+
+    private String getTypeDir(String type) {
+        return switch (type) {
+            case "role" -> "role"; case "scene" -> "scene"; case "tool" -> "props"; default -> "assets";
+        };
+    }
+
+    private String parseModelName(String vendorModel) {
+        if (vendorModel == null) return "";
+        int idx = vendorModel.indexOf(':');
+        return idx >= 0 ? vendorModel.substring(idx + 1) : vendorModel;
     }
 
     private String resolveSize(String ratio) {
@@ -350,15 +463,4 @@ public class GenerateController {
         private Boolean compulsory = false;
     }
 
-    @Data
-    public static class BatchGenAssetsRequest {
-        @NotNull private List<String> assetIds;
-        @NotNull private String projectId;
-    }
-
-    @Data
-    public static class GenAssetRequest {
-        @NotNull private String projectId;
-        @NotNull private String prompt;
-    }
 }

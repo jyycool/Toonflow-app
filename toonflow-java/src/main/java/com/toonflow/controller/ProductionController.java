@@ -677,24 +677,32 @@ public class ProductionController {
 
     @PostMapping("/assets/pollingImage")
     public R<List<Map<String, Object>>> pollingProductionAssets(@RequestBody Map<String, Object> body) {
-        @SuppressWarnings("unchecked") List<String> ids = (List<String>) body.get("ids");
-        if (ids == null || ids.isEmpty()) return R.ok(List.of());
+        @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) return R.ok(List.of());
+        List<String> ids = rawIds.stream().map(Object::toString).collect(Collectors.toList());
         List<com.toonflow.entity.OAssets> assetsList = assetsMapper.selectList(
                 new LambdaQueryWrapper<com.toonflow.entity.OAssets>().in(com.toonflow.entity.OAssets::getId, ids));
-        List<Map<String, Object>> result = assetsList.stream().map(asset -> {
-            Map<String, Object> item = new java.util.HashMap<>();
+        List<String> imgIds = assetsList.stream().filter(a -> a.getImageId() != null)
+                .map(com.toonflow.entity.OAssets::getImageId).distinct().collect(Collectors.toList());
+        Map<String, com.toonflow.entity.OImage> imgMap = imgIds.isEmpty() ? Map.of() :
+                imageMapper.selectList(new LambdaQueryWrapper<com.toonflow.entity.OImage>()
+                        .in(com.toonflow.entity.OImage::getId, imgIds)
+                        .ne(com.toonflow.entity.OImage::getState, "生成中"))
+                        .stream().collect(Collectors.toMap(com.toonflow.entity.OImage::getId, i -> i));
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (com.toonflow.entity.OAssets asset : assetsList) {
+            if (asset.getImageId() == null) continue;
+            com.toonflow.entity.OImage img = imgMap.get(asset.getImageId());
+            if (img == null) continue; // still generating
+            Map<String, Object> item = new HashMap<>();
             item.put("id", asset.getId());
             item.put("prompt", asset.getPrompt());
-            if (asset.getImageId() != null) {
-                com.toonflow.entity.OImage img = imageMapper.selectById(asset.getImageId());
-                if (img != null) {
-                    item.put("state", img.getState());
-                    item.put("filePath", img.getFilePath());
-                    item.put("errorReason", img.getErrorReason());
-                }
-            }
-            return item;
-        }).filter(m -> !"生成中".equals(m.get("state"))).toList();
+            item.put("state", img.getState());
+            item.put("filePath", img.getFilePath() != null ? img.getFilePath() : "");
+            item.put("src", img.getFilePath() != null ? img.getFilePath() : "");
+            item.put("errorReason", img.getErrorReason() != null ? img.getErrorReason() : "");
+            result.add(item);
+        }
         return R.ok(result);
     }
 
@@ -714,7 +722,8 @@ public class ProductionController {
     @PostMapping("/assets/batchGenerateAssetsImage")
     public R<Map<String, String>> batchGenerateAssetsImage(@RequestBody Map<String, Object> body) {
         @SuppressWarnings("unchecked")
-        List<String> assetIds = (List<String>) body.get("assetIds");
+        List<Object> rawIds = (List<Object>) body.get("assetIds");
+        List<String> assetIds = rawIds != null ? rawIds.stream().map(Object::toString).collect(Collectors.toList()) : null;
         String projectId = body.get("projectId") != null ? body.get("projectId").toString() : null;
         if (assetIds == null || assetIds.isEmpty()) {
             throw new com.toonflow.common.exception.BusinessException("assetIds不能为空");
