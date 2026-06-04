@@ -6,9 +6,14 @@ import com.toonflow.common.result.R;
 import com.toonflow.entity.OAssets;
 import com.toonflow.entity.OScript;
 import com.toonflow.entity.OScriptAssets;
+import com.toonflow.mapper.OAgentWorkDataMapper;
 import com.toonflow.mapper.OAssetsMapper;
+import com.toonflow.mapper.OAssets2StoryboardMapper;
+import com.toonflow.mapper.OImageFlowMapper;
 import com.toonflow.mapper.OScriptAssetsMapper;
 import com.toonflow.mapper.OScriptMapper;
+import com.toonflow.mapper.OStoryboardMapper;
+import com.toonflow.mapper.OVideoMapper;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -28,6 +33,11 @@ public class ScriptController {
     private final OScriptMapper scriptMapper;
     private final OScriptAssetsMapper scriptAssetsMapper;
     private final OAssetsMapper assetsMapper;
+    private final OStoryboardMapper storyboardMapper;
+    private final OAgentWorkDataMapper agentWorkDataMapper;
+    private final OImageFlowMapper imageFlowMapper;
+    private final OAssets2StoryboardMapper assets2StoryboardMapper;
+    private final OVideoMapper videoMapper;
     private final com.toonflow.ai.AiService aiService;
     private final com.toonflow.service.AssetExtractionService assetExtractionService;
 
@@ -110,10 +120,41 @@ public class ScriptController {
 
     @PostMapping("/delScript")
     public R<Map<String, String>> delScript(@RequestBody Map<String, Object> body) {
-        String id = body.get("id") != null ? body.get("id").toString() : null;
-        if (id == null) throw new BusinessException("id不能为空");
-        scriptMapper.deleteById(id);
-        scriptAssetsMapper.delete(new LambdaQueryWrapper<OScriptAssets>().eq(OScriptAssets::getScriptId, id));
+        @SuppressWarnings("unchecked") List<Object> rawIds = (List<Object>) body.get("ids");
+        if (rawIds == null || rawIds.isEmpty()) throw new BusinessException("id不能为空");
+        List<String> ids = rawIds.stream().map(Object::toString).collect(Collectors.toList());
+
+        // Delete agentWorkData by projectId + episodesId (episodesId = scriptId)
+        List<OScript> scripts = scriptMapper.selectList(
+                new LambdaQueryWrapper<OScript>().in(OScript::getId, ids));
+        if (!scripts.isEmpty()) {
+            List<String> projectIds = scripts.stream().map(OScript::getProjectId).distinct().collect(Collectors.toList());
+            agentWorkDataMapper.delete(new LambdaQueryWrapper<com.toonflow.entity.OAgentWorkData>()
+                    .in(com.toonflow.entity.OAgentWorkData::getProjectId, projectIds)
+                    .in(com.toonflow.entity.OAgentWorkData::getEpisodesId, ids));
+        }
+
+        // Delete storyboard-related records
+        List<com.toonflow.entity.OStoryboard> storyboards = storyboardMapper.selectList(
+                new LambdaQueryWrapper<com.toonflow.entity.OStoryboard>()
+                        .in(com.toonflow.entity.OStoryboard::getScriptId, ids));
+        if (!storyboards.isEmpty()) {
+            List<String> sbIds = storyboards.stream().map(com.toonflow.entity.OStoryboard::getId).collect(Collectors.toList());
+            // Delete linked imageFlows
+            List<String> flowIds = storyboards.stream()
+                    .filter(s -> s.getFlowId() != null).map(com.toonflow.entity.OStoryboard::getFlowId).collect(Collectors.toList());
+            if (!flowIds.isEmpty()) flowIds.forEach(fid -> imageFlowMapper.deleteById(fid));
+            // Delete assets2storyboard links
+            assets2StoryboardMapper.delete(new LambdaQueryWrapper<com.toonflow.entity.OAssets2Storyboard>()
+                    .in(com.toonflow.entity.OAssets2Storyboard::getStoryboardId, sbIds));
+        }
+
+        scriptAssetsMapper.delete(new LambdaQueryWrapper<OScriptAssets>().in(OScriptAssets::getScriptId, ids));
+        scriptMapper.deleteBatchIds(ids);
+        storyboardMapper.delete(new LambdaQueryWrapper<com.toonflow.entity.OStoryboard>()
+                .in(com.toonflow.entity.OStoryboard::getScriptId, ids));
+        videoMapper.delete(new LambdaQueryWrapper<com.toonflow.entity.OVideo>()
+                .in(com.toonflow.entity.OVideo::getScriptId, ids));
         return R.ok(Map.of("message", "删除剧本成功"));
     }
 
