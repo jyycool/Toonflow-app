@@ -52,10 +52,19 @@ public class SettingController {
                 row.put("inputValues", objectMapper.readValue(
                         item.getInputValues() != null ? item.getInputValues() : "{}", new TypeReference<Map<String,Object>>() {}));
             } catch (Exception e) { row.put("inputValues", Map.of()); }
-            // models: 解析为数组
+            // models: 解析为数组，将 modelId 字段别名为 modelName 以匹配 TS 原版
             try {
-                row.put("models", objectMapper.readValue(
-                        item.getModels() != null ? item.getModels() : "[]", new TypeReference<List<Object>>() {}));
+                List<Map<String, Object>> rawModels = objectMapper.readValue(
+                        item.getModels() != null ? item.getModels() : "[]",
+                        new TypeReference<List<Map<String, Object>>>() {});
+                List<Map<String, Object>> models = rawModels.stream().map(m -> {
+                    Map<String, Object> nm = new java.util.LinkedHashMap<>(m);
+                    if (!nm.containsKey("modelName") && nm.containsKey("modelId")) {
+                        nm.put("modelName", nm.get("modelId"));
+                    }
+                    return nm;
+                }).collect(java.util.stream.Collectors.toList());
+                row.put("models", models);
             } catch (Exception e) { row.put("models", List.of()); }
             // 供应商元数据从 resources 读取
             String metaJson = loadVendorMeta(item.getId());
