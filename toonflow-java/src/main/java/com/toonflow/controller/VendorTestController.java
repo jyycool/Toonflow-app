@@ -30,15 +30,12 @@ public class VendorTestController {
      * 聚合测试入口（type: text/image/video）
      */
     @PostMapping
-    public R<Object> modelTest(@RequestBody Map<String, String> body) {
-        String type = body.getOrDefault("type", "text");
-        // 原项目模型标识为 id:modelName（id=供应商ID, modelName=模型ID）
-        String id = body.get("id");
-        String modelName = body.get("modelName");
-        String fullModel = (id != null && !id.isEmpty())
-                ? id + ":" + modelName
-                : modelName;
-        Map<String, String> dispatch = new java.util.HashMap<>(body);
+    public R<Object> modelTest(@RequestBody Map<String, Object> body) {
+        String type = body.getOrDefault("type", "text").toString();
+        String id = body.get("id") != null ? body.get("id").toString() : null;
+        String modelName = body.get("modelName") != null ? body.get("modelName").toString() : null;
+        String fullModel = (id != null && !id.isEmpty()) ? id + ":" + modelName : modelName;
+        Map<String, Object> dispatch = new java.util.HashMap<>(body);
         dispatch.put("modelName", fullModel);
         return switch (type) {
             case "image" -> R.ok(imageTest(dispatch).getData());
@@ -51,17 +48,18 @@ public class VendorTestController {
      * 文本模型测试
      */
     @PostMapping("/textTest")
-    public R<Map<String, Object>> textTest(@RequestBody Map<String, String> body) {
-        String modelName = body.get("modelName"); // vendorId:modelId
+    public R<Map<String, Object>> textTest(@RequestBody Map<String, Object> body) {
+        String modelName = body.get("modelName") != null ? body.get("modelName").toString() : null;
         try {
             var model = aiService.buildChatModel(modelName);
-            var messages = List.<org.springframework.ai.chat.messages.Message>of(new org.springframework.ai.chat.messages.UserMessage("hello, please reply connection success"));
+            var messages = List.<org.springframework.ai.chat.messages.Message>of(
+                    new org.springframework.ai.chat.messages.UserMessage("hello, please reply connection success"));
             var response = model.call(new org.springframework.ai.chat.prompt.Prompt(messages));
             String reply = response.getResult().getOutput().getText();
             return R.ok(Map.of("success", true, "reply", reply));
         } catch (Exception e) {
             log.warn("文本模型测试失败: {}", e.getMessage());
-            return R.ok(Map.of("success", false, "error", e.getMessage()));
+            return R.ok(Map.of("success", false, "error", e.getMessage() != null ? e.getMessage() : "未知错误"));
         }
     }
 
@@ -69,15 +67,15 @@ public class VendorTestController {
      * 图片模型测试
      */
     @PostMapping("/imageTest")
-    public R<Map<String, Object>> imageTest(@RequestBody Map<String, String> body) {
-        String modelName = body.get("modelName");
+    public R<Map<String, Object>> imageTest(@RequestBody Map<String, Object> body) {
+        String modelName = body.get("modelName") != null ? body.get("modelName").toString() : null;
+        String prompt = body.get("prompt") != null ? body.get("prompt").toString() : "a cute cat, test image";
         try {
-            String url = mediaGenerationService.generateImage(modelName,
-                    "a cute cat, test image", "512x512");
-            return R.ok(Map.of("success", true, "url", url));
+            String url = mediaGenerationService.generateImage(modelName, prompt, "512x512");
+            return R.ok(Map.of("success", true, "url", url != null ? url : ""));
         } catch (Exception e) {
             log.warn("图片模型测试失败: {}", e.getMessage());
-            return R.ok(Map.of("success", false, "error", e.getMessage()));
+            return R.ok(Map.of("success", false, "error", e.getMessage() != null ? e.getMessage() : "未知错误"));
         }
     }
 
@@ -85,8 +83,8 @@ public class VendorTestController {
      * 视频模型测试（仅提交任务验证连通性）
      */
     @PostMapping("/videoTest")
-    public R<Map<String, Object>> videoTest(@RequestBody Map<String, String> body) {
-        String modelName = body.get("modelName"); // vendorId:modelId
+    public R<Map<String, Object>> videoTest(@RequestBody Map<String, Object> body) {
+        String modelName = body.get("modelName") != null ? body.get("modelName").toString() : null;
         try {
             // 从模型的 durationResolutionMap 取首个时长/分辨率（与原项目 modelTest 一致）
             Integer duration = null;
